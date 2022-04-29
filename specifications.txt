@@ -1,0 +1,15 @@
+--------------------
+Features to isolate:
+--------------------
+  - isometric terrain viewer + camera handling
+
+  - player movement (especially the mouse <> terrain interaction,
+  see the pbge-legacy MapCursor class)
+  
+  - NPC positioning + a few dialogue features (only the UI /widgets part, not the "grammar" part)
+
+--------
+Add-ons:
+--------
+  - handle 2.5d (several layers of isometric tiles)
+
