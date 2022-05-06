@@ -8,93 +8,30 @@
 
 
 from .. import image,KeyObject
-import pygame
+
+import katagames_engine as kengi
+pygame = kengi.pygame
+
+
+Tilesets = kengi.tmx.data.Tilesets
+Layers = kengi.tmx.data.Layers
+
 import math
-from . import movement
+from . import movement, tileset
 import weakref
 
-class Tile( object ):
-    def __init__(self, floor=None, wall=None, decor=None, visible=False):
-        self.floor = floor
-        self.wall = wall
-        self.decor = decor
-        self.visible = visible
-    def blocks_movement( self, movemode ):
-        return ( self.floor and movemode in self.floor.blocks ) or (self.wall is True) or (self.wall and movemode in self.wall.blocks ) or (self.decor and movemode in self.decor.blocks )
+from zlib import decompress
+from base64 import b64decode
 
-    def blocks_vision( self ):
-        return self.blocks_movement( movement.Vision )
+from xml.etree import ElementTree
 
-    def blocks_walking( self ):
-        return self.blocks_movement( movement.Walking )
-
-    def render_bottom( self, dest, view, x, y ):
-        if self.floor:
-            self.floor.render_bottom( dest, view, x, y )
-        if self.wall and self.wall is not True:
-            self.wall.render_bottom( dest, view, x, y )
-        if self.decor:
-            self.decor.render_bottom( dest, view, x, y )
-
-    def render_biddle( self, dest, view, x, y ):
-        if self.floor:
-            self.floor.render_biddle( dest, view, x, y )
-        if self.wall and self.wall is not True:
-            self.wall.render_biddle( dest, view, x, y )
-        if self.decor:
-            self.decor.render_biddle( dest, view, x, y )
-
-    def render_middle( self, dest, view, x, y ):
-        if self.floor:
-            self.floor.render_middle( dest, view, x, y )
-        if self.wall and self.wall is not True:
-            self.wall.render_middle( dest, view, x, y )
-        if self.decor:
-            self.decor.render_middle( dest, view, x, y )
-
-    def render_top( self, dest, view, x, y ):
-        if self.floor:
-            self.floor.render_top( dest, view, x, y )
-        if self.wall and self.wall is not True:
-            self.wall.render_top( dest, view, x, y )
-        if self.decor:
-            self.decor.render_top( dest, view, x, y )
-
-    def altitude( self ):
-        alt = 0
-        if self.floor:
-            alt = self.floor.altitude
-        if self.wall and self.wall is not True:
-            alt = max(self.wall.altitude,alt)
-        if self.decor:
-            alt = max(self.decor.altitude,alt)
-        return alt
-
-    def get_movement_multiplier( self, mmode ):
-        it = 1.0
-        if self.floor:
-            it *= self.floor.movement_cost.get(mmode,1.0)
-        if self.wall:
-            it *= self.wall.movement_cost.get(mmode,1.0)
-        if self.decor:
-            it *= self.decor.movement_cost.get(mmode,1.0)
-        return it
-
-    def get_cover( self, vmode=movement.Vision ):
-        it = 0
-        if self.floor:
-            it += self.floor.movement_cost.get(vmode,0)
-        if self.wall:
-            it += self.wall.movement_cost.get(vmode,0)
-        if self.decor:
-            it += self.decor.movement_cost.get(vmode,0)
-        return it
+import struct
 
 
 class PlaceableThing( KeyObject ):
     """A thing that can be placed on the map."""
     # By default, a hidden thing just isn't displayed.
-    def __init__(self, hidden=False, **keywords ):
+    def __init__(self, hidden=False, **keywords):
         self.hidden = hidden
         self.pos = None
         self.offset_pos = None
@@ -147,17 +84,201 @@ from . import waypoints
 from . import areaindicator
 from . import mapcursor
 
-class TeamDictionary( weakref.WeakKeyDictionary ):
-    # It's like a regular WeakKeyDictionary but it pickles.
-    def __getstate__( self ):
-        state = dict()
-        for key,val in self.items():
-            state[key] = val
-        return state
-    def __setstate__( self, state ):
-        self.__init__()
-        self.update( state )
 
+class IsometricLayer:
+    def __init__(self, name, visible, map):
+        self.name = name
+        self.visible = visible
+        self.position = (0, 0)
+        # TODO get from TMX?
+        self.tile_width = map.tile_width
+        self.tile_height = map.tile_height
+        self.width = map.width
+        self.height = map.height
+        self.tilesets = map.tilesets
+        self.group = pygame.sprite.Group()
+        self.properties = {}
+        self.cells = {}
+
+    def __repr__(self):
+        return '<Layer "%s" at 0x%x>' % (self.name, id(self))
+
+    def __getitem__(self, pos):
+        return self.cells.get(pos)
+
+    def __setitem__(self, pos, value):
+        self.cells[pos] = value
+
+    @classmethod
+    def fromxml(cls, tag, givenmap):
+        layer = cls(tag.attrib['name'], int(tag.attrib.get('visible', 1)), givenmap)
+
+        data = tag.find('data')
+        if data is None:
+            raise ValueError('layer %s does not contain <data>' % layer.name)
+
+        data = data.text.strip()
+        data = data.encode()  # Convert to bytes
+        # Decode from base 64 and decompress via zlib
+        data = decompress(b64decode(data))
+        data = struct.unpack('<%di' % (len(data) / 4,), data)
+        assert len(data) == layer.width * layer.height
+        for idx, gid in enumerate(data):
+            if gid >= 1:  # otherwise its not set
+                tile = givenmap.tilesets[gid]
+                x = idx % layer.width
+                y = idx // layer.width
+                layer.cells[x, y] = tile
+
+        return layer
+
+    def update(self, dt, *args):
+        pass
+
+    def set_view(self, x, y, w, h, viewport_ox=0, viewport_oy=0):
+        self.view_x, self.view_y = x, y
+        self.view_w, self.view_h = w, h
+        x -= viewport_ox
+        y -= viewport_oy
+        self.position = (x, y)
+
+    def draw(self, surface):
+        """
+        Draw this layer, limited to the current viewport, to the Surface.
+        """
+        ox, oy = self.position
+        w, h = self.view_w, self.view_h
+        for x in range(ox, ox + w + self.tile_width, self.tile_width):
+            i = x // self.tile_width
+            for y in range(oy, oy + h + self.tile_height, self.tile_height):
+                j = y // self.tile_height
+                if (i, j) not in self.cells:
+                    continue
+                cell = self.cells[i, j]
+                surface.blit(cell.tile.surface, (cell.px - ox, cell.py - oy))
+
+    def find(self, *properties):
+        """
+        Find all cells with the given properties set.
+        """
+        r = []
+        for propname in properties:
+            for cell in list(self.cells.values()):
+                if cell and propname in cell:
+                    r.append(cell)
+        return r
+
+    def match(self, **properties):
+        """
+        Find all cells with the given properties set to the given values.
+        """
+        r = []
+        for propname in properties:
+            for cell in list(self.cells.values()):
+                if propname not in cell:
+                    continue
+                if properties[propname] == cell[propname]:
+                    r.append(cell)
+        return r
+
+    def collide(self, rect, propname):
+        """
+        Find all cells the rect is touching that have the indicated property
+        name set.
+        """
+        r = []
+        for cell in self.get_in_region(rect.left, rect.top, rect.right,
+                                       rect.bottom):
+            if not cell.intersects(rect):
+                continue
+            if propname in cell:
+                r.append(cell)
+        return r
+
+    def get_in_region(self, x1, y1, x2, y2):
+        """
+        Return cells (in [column][row]) that are within the map-space
+        pixel bounds specified by the bottom-left (x1, y1) and top-right
+        (x2, y2) corners.
+        Return a list of Cell instances.
+        """
+        i1 = max(0, x1 // self.tile_width)
+        j1 = max(0, y1 // self.tile_height)
+        i2 = min(self.width, x2 // self.tile_width + 1)
+        j2 = min(self.height, y2 // self.tile_height + 1)
+        return [self.cells[i, j]
+                for i in range(int(i1), int(i2))
+                for j in range(int(j1), int(j2))
+                if (i, j) in self.cells]
+
+    def get_at(self, x, y):
+        """
+        Return the cell at the nominated (x, y) coordinate.
+        Return a Cell instance or None.
+        """
+        i = x // self.tile_width
+        j = y // self.tile_height
+        return self.cells.get((i, j))
+
+    def neighbors(self, index):
+        """
+        Return the indexes of the valid (ie. within the map) cardinal (ie.
+        North, South, East, West) neighbors of the nominated cell index.
+        Returns a list of 2-tuple indexes.
+        """
+        i, j = index
+        n = []
+        if i < self.width - 1:
+            n.append((i + 1, j))
+        if i > 0:
+            n.append((i - 1, j))
+        if j < self.height - 1:
+            n.append((i, j + 1))
+        if j > 0:
+            n.append((i, j - 1))
+        return n
+
+
+class IsometricMap():
+    def __init__(self):
+        self.px_width = 0
+        self.px_height = 0
+        self.tile_width = 0
+        self.tile_height = 0
+        self.width = 0
+        self.height = 0
+        self.properties = {}
+        self.layers = Layers()
+        self.tilesets = Tilesets()
+
+    @classmethod
+    def load(cls, filename, hack_tsxfile=None, hack_ts=None):
+        with open(filename) as f:
+            tminfo_tree = ElementTree.fromstring(f.read())
+
+        # get most general map informations and create a surface
+        tilemap = cls()
+
+        tilemap.width = int(tminfo_tree.attrib['width'])
+        tilemap.height = int(tminfo_tree.attrib['height'])
+        tilemap.tile_width = int(tminfo_tree.attrib['tilewidth'])
+        tilemap.tile_height = int(tminfo_tree.attrib['tileheight'])
+        tilemap.px_width = tilemap.width * tilemap.tile_width
+        tilemap.px_height = tilemap.height * tilemap.tile_height
+
+        for tag in tminfo_tree.findall('tileset'):
+            tilemap.tilesets.add(
+                tileset.IsometricTileset.fromxml(tag, hacksource=hack_tsxfile, hacktileset=hack_ts)
+                # hacks work only if no more than 1 ts
+            )
+            print('tilesets added')
+
+        for tag in tminfo_tree.findall('layer'):
+            layer = IsometricLayer.fromxml(tag, tilemap)
+            tilemap.layers.add_named(layer, layer.name)
+
+
+        return tilemap
 
 class Scene( object ):
     DELTA8 = ( (-1,-1), (0,-1), (1,-1), (-1,0), (1,0), (-1,1), (0,1), (1,1) )
@@ -173,13 +294,13 @@ class Scene( object ):
         self.data = dict()
         self.in_sight = set()
 
+        self.contents = list()
+
         self.last_updated = 0
         self.exit_scene_wp = exit_scene_wp
 
         # Fill the map with empty tiles
-        self._map = [[ Tile()
-            for y in range(height) ]
-                for x in range(width) ]
+        self._map = None
 
         self.local_teams = dict()
 
@@ -365,24 +486,3 @@ class Scene( object ):
         else:
             return self
 
-    def end_scene(self,camp):
-        if camp.scene is self and not camp.has_a_destination():
-            # If the scene being deleted is the current scene, and we don't already have a destination
-            # set, set a new destination.
-            return_to = self.exit_scene_wp or camp.home_base
-            if return_to:
-                camp.go(return_to)
-        for s in list(self.sub_scenes):
-            if hasattr(s, "end_scene"):
-                s.end_scene(camp)
-            else:
-                self.sub_scenes.remove(s)
-        for s in list(self.scripts):
-            self.scripts.remove(s)
-        for c in list(self.contents):
-            self.contents.remove(c)
-        if hasattr(self,"container") and self.container:
-            self.container.remove(self)
-
-    def get_rect(self):
-        return pygame.Rect(0,0,self.width,self.height)

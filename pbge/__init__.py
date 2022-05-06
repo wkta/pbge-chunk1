@@ -524,8 +524,7 @@ else:
     FULLSCREEN_RES = (0, 0)
 
 
-def init(winname, appname, gamedir, icon="sys_icon.png", poster_pattern="poster_*.png",
-         display_font="Anita semi square.ttf"):
+def init():
     global INIT_DONE
     if not INIT_DONE:
         pygame.init()
