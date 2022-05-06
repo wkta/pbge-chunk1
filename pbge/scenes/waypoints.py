@@ -1,6 +1,5 @@
 
-from .. import container,image,KeyObject,rpgmenu,frects,draw_text,default_border,my_state,alert
-import pygame
+from .. import rpgmenu,frects,draw_text,default_border,my_state,alert
 
 
 class PuzzleMenu( rpgmenu.Menu ):
@@ -34,7 +33,6 @@ class Waypoint( object ):
         """Place this waypoint in a scene."""
         if scene:
             self.place( scene, pos )
-        self.contents = container.ContainerList(owner=self)
         self.plot_locked = plot_locked
         if desc:
             self.desc = desc
@@ -43,11 +41,11 @@ class Waypoint( object ):
         if name != '':
             self.name = name
 
-    def place( self, scene, pos=None ):
-        if hasattr( self, "container" ) and self.container:
-            self.container.remove( self )
-        scene.contents.append( self )
-        if pos and scene.on_the_map( *pos ):
+    def place(self, scene, pos=None):
+        if hasattr(self, "container") and self.container:
+            self.container.remove(self)
+        scene.contents.append(self)
+        if pos and scene.on_the_map(*pos):
             self.pos = pos
             if self.TILE:
                 if self.TILE.floor:

@@ -1,6 +1,5 @@
 
 import copy
-from . import grammar
 from .. import my_state,default_border,frects,draw_text,rpgmenu
 import random
 
@@ -100,11 +99,6 @@ class Offer(object):
 
     def format_text( self, mygrammar ):
         text = self.msg
-        if self.data:
-            text = text.format(**self.data)
-        text = grammar.convert_tokens( text, mygrammar )
-        if self.data:
-            text = text.format(**self.data)
         return text
 
     def __str__(self):
@@ -130,11 +124,6 @@ class Reply(object):
 
     def format_text( self, mygrammar ):
         text = self.msg
-        if self.destination:
-            text = text.format(**self.destination.data)
-        text = grammar.convert_tokens( text, mygrammar )
-        if self.destination:
-            text = text.format(**self.destination.data)
         return text
 
     def apply_to_menu(self,mymenu,pcgrammar):
@@ -174,25 +163,11 @@ class DynaConversation(object):
         self.visualizer = visualizer
         self.root = None
         self.npc_offers = list()
-        self.npc_grammar = grammar.Grammar()
-        self.pc_grammar = grammar.Grammar()
         #self._get_dialogue_data()
         self.build(start)
 
     def _get_dialogue_data( self ):
         self.npc_offers = list()
-        self.pc_grammar.clear()
-        self.npc_grammar.clear()
-        if GRAMMAR_BUILDER:
-            GRAMMAR_BUILDER(self.npc_grammar,self.camp,self.npc,self.pc)
-            GRAMMAR_BUILDER(self.pc_grammar,self.camp,self.pc,self.npc)
-        self.pc_grammar.absorb({"[pc]":[str(self.pc),], "[npc]":[str(self.npc)]})
-        self.npc_grammar.absorb({"[pc]":[str(self.pc)], "[npc]":[str(self.npc)]})
-
-        self.npc_offers, pgram = self.camp.get_dialogue_offers_and_grammar(self.npc)
-        if pgram:
-            self.npc_grammar.absorb( pgram )
-            self.pc_grammar.absorb( pgram )
 
         for goff in GENERIC_OFFERS:
             # Add a copy of this to the npc_offers if there isn't
@@ -244,8 +219,6 @@ class DynaConversation(object):
             self.root = current
         if self.root in self.npc_offers:
             self.npc_offers.remove(self.root)
-        # Process the root offer message.
-        self.root.msg = self.root.format_text( self.npc_grammar )
 
         # If the current offer has replies, fill them first.
         for r in self.root.replies:
@@ -274,8 +247,6 @@ class DynaConversation(object):
         while coff:
             self.visualizer.text = coff.msg
             mymenu = self.visualizer.get_menu()
-            for i in coff.replies:
-                i.apply_to_menu(mymenu,self.pc_grammar)
             if self.visualizer.text and not mymenu.items:
                 mymenu.add_item( "[Continue]", None )
             else:

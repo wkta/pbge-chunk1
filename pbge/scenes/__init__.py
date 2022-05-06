@@ -7,7 +7,7 @@
     # data.
 
 
-from .. import container,image,KeyObject
+from .. import image,KeyObject
 import pygame
 import math
 from . import movement
@@ -167,8 +167,6 @@ class Scene( object ):
         self.width = width
         self.height = height
         self.player_team = player_team
-        self.scripts = container.ContainerList(owner=self)
-        self.sub_scenes = container.ContainerList(owner=self)
 
         # The data dict is primarily used to hold frames for TerrSetTerrain
         # tiles, but I guess you could put anything you want in there.
@@ -179,7 +177,6 @@ class Scene( object ):
         self.exit_scene_wp = exit_scene_wp
 
         # Fill the map with empty tiles
-        self.contents = container.ContainerList(owner=self)
         self._map = [[ Tile()
             for y in range(height) ]
                 for x in range(width) ]

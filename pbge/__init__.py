@@ -12,20 +12,11 @@
 
 import pygame
 from itertools import chain
-from . import util
 import glob
 import random
 import weakref
 import sys
 import os
-
-# Import the android module. If we can't import it, set it to None - this
-# lets us test it, and check to see if we want android-specific behavior.
-try:
-    import android
-
-except ImportError:
-    android = None
 
 
 class KeyObject(object):
@@ -179,45 +170,8 @@ class GameState(object):
         self.anim_phase = (self.anim_phase + 1) % 6000
         if reset_standing_by:
             self.standing_by = False
-        if util.config.getboolean("GENERAL", "stretchy_screen"):
-            w, h = self.physical_screen.get_size()
-            pygame.transform.smoothscale(self.screen, (w, h), self.physical_screen)
-            # pygame.transform.scale(self.screen, (w, h), self.physical_screen)
         pygame.display.flip()
 
-    def locate_music(self, mfname):
-        if mfname in self.music_library:
-            return self.music_library[mfname]
-        elif mfname and self.audio_enabled:
-            sound = pygame.mixer.Sound(util.music_dir(mfname))
-            sound.set_volume(util.config.getfloat("GENERAL","music_volume"))
-            self.music_library[mfname] = sound
-            return sound
-
-    def start_music(self, mfname, yafi=False):
-        # yafi = You Asked For It
-        if ((yafi or (mfname and mfname != self.music_name and
-                      util.config.getboolean("GENERAL", "music_on"))) and self.audio_enabled and
-                not util.config.getboolean("TROUBLESHOOTING", "disable_audio_entirely")):
-            sound = self.locate_music(mfname)
-            if self.music:
-                self.music.fadeout(2000)
-            self.music = sound
-            sound.play(loops=-1, fade_ms=2000)
-        self.music_name = mfname
-
-    def stop_music(self):
-        if self.music:
-            self.music.stop()
-
-    def resume_music(self):
-        if self.music_name:
-            mname, self.music_name = self.music_name, None
-            self.start_music(mname)
-
-    def get_music_list(self):
-        mylist = glob.glob(util.music_dir("*.ogg"))
-        return [os.path.basename(m) for m in mylist]
 
     def _set_active_widget(self, widj):
         if widj:
@@ -233,16 +187,6 @@ class GameState(object):
         self._active_widget = None
 
     active_widget = property(_get_active_widget, _set_active_widget, _del_active_widget)
-
-    def get_keys_for(self, action):
-        keys = util.config.get("KEYS", action)
-        key_set = set()
-        for k in keys.split():
-            if k.startswith("K_"):
-                k = getattr(pygame, k, None)
-                if k:
-                    key_set.add(k)
-        return key_set
 
     def _get_all_kb_selectable_widgets(self, wlist):
         mylist = list()
@@ -272,21 +216,6 @@ class GameState(object):
         w, h = self.physical_screen.get_size()
         self.screen = pygame.Surface((max(800, 600 * w // h), 600))
 
-    def set_size(self, w, h):
-        if util.config.getboolean("GENERAL", "stretchy_screen"):
-            my_state.physical_screen = pygame.display.set_mode((max(w, 800), max(h, 600)), pygame.RESIZABLE)
-            self.resize()
-        else:
-            my_state.screen = pygame.display.set_mode((max(w, 800), max(h, 600)), pygame.RESIZABLE)
-
-    def update_mouse_pos(self):
-        if util.config.getboolean("GENERAL", "stretchy_screen"):
-            x, y = pygame.mouse.get_pos()
-            w1, h1 = self.physical_screen.get_size()
-            w2, h2 = self.screen.get_size()
-            self.mouse_pos = (x * w2 // w1, y * h2 // h1)
-        else:
-            self.mouse_pos = pygame.mouse.get_pos()
 
 
 INPUT_CURSOR = None
@@ -409,28 +338,11 @@ def wait_event():
     # Wait for input, then return it when it comes.
     ev = pygame.event.wait()
 
-    # Android-specific:
-    if android:
-        if android.check_pause():
-            android.wait_for_resume()
-
     # Record if a quit event took place
     if ev.type == pygame.QUIT:
         my_state.got_quit = True
     elif ev.type == TIMEREVENT:
         pygame.event.clear(TIMEREVENT)
-    elif ev.type == pygame.MOUSEMOTION:
-        my_state.update_mouse_pos()
-    elif ev.type == pygame.KEYDOWN:
-        if ev.key == pygame.K_PRINT:
-            pygame.image.save(my_state.screen, util.user_dir("out.png"))
-        elif ev.key in my_state.get_keys_for("next_widget"):
-            my_state.active_widget_hilight = True
-            my_state.activate_next_widget(ev.mod & pygame.KMOD_SHIFT)
-    elif ev.type == pygame.VIDEORESIZE:
-        # PG2 Change
-        # pygame.display._resize_event(ev)
-        my_state.set_size(max(ev.w, 800), max(ev.h, 600))
 
     # Inform any interested widgets of the event.
     my_state.widget_clicked = False
@@ -548,18 +460,10 @@ def please_stand_by(caption=None):
 
 from . import frects
 from . import rpgmenu
-from . import container
-from . import namegen
-from . import randmaps
 from . import scenes
-from . import plots
 from . import image
-from . import effects
-from . import campaign
 from . import widgets
 from . import dialogue
-from . import cutscene
-from . import challenges
 
 
 class BasicNotification(frects.Frect):
@@ -624,77 +528,11 @@ def init(winname, appname, gamedir, icon="sys_icon.png", poster_pattern="poster_
          display_font="Anita semi square.ttf"):
     global INIT_DONE
     if not INIT_DONE:
-        util.init(appname, gamedir)
-        # Init image.py
-        image.init_image(util.image_dir(""))
-
         pygame.init()
-        my_state.audio_enabled = not util.config.getboolean("TROUBLESHOOTING", "disable_audio_entirely")
-        if my_state.audio_enabled:
-            try:
-                pygame.mixer.init()
-            except pygame.error:
-                my_state.audio_enabled = False
-                print("Error: pygame.mixer failed to load.")
-        pygame.display.set_caption(winname, appname)
-        pygame.display.set_icon(pygame.image.load(util.image_dir(icon)))
-        # Set the screen size.
-        if util.config.getboolean("GENERAL", "stretchy_screen"):
-            if util.config.getboolean("GENERAL", "fullscreen"):
-                my_state.physical_screen = pygame.display.set_mode(FULLSCREEN_RES, FULLSCREEN_FLAGS)
-            else:
-                my_state.physical_screen = pygame.display.set_mode((800, 600), WINDOWED_FLAGS)
-                #my_state.physical_screen = pygame.display.set_mode((1280, 720), WINDOWED_FLAGS)
-            my_state.resize()
-        else:
-            if util.config.getboolean("GENERAL", "fullscreen"):
-                my_state.screen = pygame.display.set_mode(FULLSCREEN_RES, FULLSCREEN_FLAGS)
-            else:
-                my_state.screen = pygame.display.set_mode((800, 600), WINDOWED_FLAGS)
-
-        global INPUT_CURSOR
-        INPUT_CURSOR = image.Image("sys_textcursor.png", 8, 16)
-
-        global SMALLFONT
-        SMALLFONT = pygame.font.Font(util.image_dir("DejaVuSansCondensed-Bold.ttf"), 12)
-        my_state.small_font = SMALLFONT
-
-        global TINYFONT
-        TINYFONT = pygame.font.Font(util.image_dir("DejaVuSansCondensed-Bold.ttf"), 9)
-        my_state.tiny_font = TINYFONT
-
-        global ANIMFONT
-        ANIMFONT = pygame.font.Font(util.image_dir("DejaVuSansCondensed-Bold.ttf"), 16)
-        my_state.anim_font = ANIMFONT
-
-        global MEDIUMFONT
-        MEDIUMFONT = pygame.font.Font(util.image_dir("DejaVuSansCondensed-Bold.ttf"), 14)
-        my_state.medium_font = MEDIUMFONT
-
-        global ALTTEXTFONT
-
-        ALTTEXTFONT = pygame.font.Font(util.image_dir("DejaVuSansCondensed-BoldOblique.ttf"), 15)
-        my_state.alt_text_font = ALTTEXTFONT
-
-        global ITALICFONT
-        ITALICFONT = pygame.font.Font(util.image_dir("DejaVuSansCondensed-BoldOblique.ttf"), 12)
-
-        global BIGFONT
-        BIGFONT = pygame.font.Font(util.image_dir(display_font), 16)
-        my_state.big_font = BIGFONT
-
-        my_state.huge_font = pygame.font.Font(util.image_dir(display_font), 24)
-
-        global POSTERS
-        POSTERS += glob.glob(util.image_dir(poster_pattern))
 
         global FPS
-        FPS = util.config.getint("GENERAL", "frames_per_second")
+        FPS = 30
         pygame.time.set_timer(TIMEREVENT, int(1000 / FPS))
-
-        if android:
-            android.init()
-            android.map_key(android.KEYCODE_BACK, pygame.K_ESCAPE)
 
         # Set key repeat.
         pygame.key.set_repeat(200, 75)

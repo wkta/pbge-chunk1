@@ -1,8 +1,7 @@
 import collections
 import weakref
-from . import Tile
 from .. import my_state,anim_delay,WHITE, wrap_multi_line
-from .. import util, image
+from .. import image
 import pygame
 from . import waypoints,terrain
 import random
@@ -308,13 +307,6 @@ class SceneView( object ):
         my_state.widgets_active = False
 
         tick = 0
-        if record_anim:
-            self.anims.clear()
-            self()
-            my_state.do_flip()
-            pygame.image.save( my_state.screen, util.user_dir( "anim_{:0>3}.png".format(tick) ) )
-            tick += 1
-
         while self.anim_list or self.tickers:
             should_delay = False
             self.anims.clear()
@@ -328,8 +320,6 @@ class SceneView( object ):
             if should_delay or self.tickers:
                 self()
                 my_state.do_flip()
-            if record_anim:
-                pygame.image.save( my_state.screen, util.user_dir( "anim_{:0>3}.png".format(tick) ) )
 
             anim_delay()
             tick += 1
@@ -410,8 +400,6 @@ class SceneView( object ):
                 # there.
                 self.waypointmap[m.pos].append(m)
 
-        show_names = util.config.getboolean( "GENERAL", "names_above_heads" )
-
         while keep_going:
             # In order to allow smooth sub-tile movement of stuff, we have
             # to draw everything in a particular order. First, do the predrawing
@@ -436,8 +424,6 @@ class SceneView( object ):
                         mx,my = m.pos
                         y_alt = self.scene.model_altitude(m,x,y)
                         m.render( (self.relative_x(mx,my)+self.x_off+self.HTW,self.relative_y(mx,my)+self.y_off+self.TILE_WIDTH-self.HTH-y_alt), self)
-                        if show_names:
-                            self.show_model_name(m,self.relative_x(mx,my)+self.x_off+self.HTW,self.relative_y(mx,my)+self.y_off+self.TILE_WIDTH-self.HTH-y_alt)
 
                 self.scene._map[x][y].render_biddle( dest, self, x,y )
 
@@ -474,8 +460,6 @@ class SceneView( object ):
                         mx,my = m.pos
                         y_alt = self.scene.model_altitude(m,x-1,y-1)
                         m.render( (self.relative_x(mx,my)+self.x_off+self.HTW,self.relative_y(mx,my)+self.y_off+self.TILE_WIDTH-self.HTH-y_alt), self)
-                        if show_names:
-                            self.show_model_name(m,self.relative_x(mx,my)+self.x_off+self.HTW,self.relative_y(mx,my)+self.y_off+self.TILE_WIDTH-self.HTH-y_alt)
 
                 dest.topleft = (self.relative_x( x-1, y-1 ) + self.x_off,self.relative_y( x-1, y-1 ) + self.y_off)
                 self.scene._map[x-1][y-1].render_top( dest, self, x-1,y-1 )
@@ -522,8 +506,7 @@ class SceneView( object ):
                         mx,my = m.pos
                         y_alt = self.scene.model_altitude(m,x-1,y-1)
                         m.render( (self.relative_x(mx,my)+self.x_off+self.HTW,self.relative_y(mx,my)+self.y_off+self.TILE_WIDTH-self.HTH-y_alt), self)
-                        if show_names:
-                            self.show_model_name(m,self.relative_x(mx,my)+self.x_off+self.HTW,self.relative_y(mx,my)+self.y_off+self.TILE_WIDTH-self.HTH-y_alt)
+
 
                 dest.topleft = (self.relative_x( x-1, y-1 ) + self.x_off,self.relative_y( x-1, y-1 ) + self.y_off)
                 self.scene._map[x-1][y-1].render_top( dest, self, x-1,y-1 )

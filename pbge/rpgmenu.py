@@ -1,6 +1,5 @@
 import pygame
 import glob
-from . import util
 from .frects import Frect,ANCHOR_CENTER,ANCHOR_UPPERLEFT
 import random
 import collections
