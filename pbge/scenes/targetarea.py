@@ -17,14 +17,14 @@ class Cone( object ):
         self.reach = reach
         self.delay_from = delay_from
     def get_area( self, camp, origin, target ):
-        return pfov.Cone( camp.scene, origin, target ).tiles
+        return pfov.Cone(camp.isometric_map, origin, target).tiles
     def get_delay_point( self, origin, target ):
         if self.delay_from < 0:
             return origin
         elif self.delay_from > 0:
             return target
     def get_targets( self, camp, origin ):
-        tiles = pfov.PointOfView( camp.scene, origin[0], origin[1], self.reach ).tiles
+        tiles = pfov.PointOfView(camp.isometric_map, origin[0], origin[1], self.reach).tiles
         tiles.remove( origin )
         return tiles
     def get_reach( self ):
@@ -40,9 +40,9 @@ class Blast( object ):
         self.reach = reach
         self.delay_from = delay_from
     def get_area( self, camp, origin, target ):
-        return pfov.PointOfView( camp.scene, target[0], target[1], self.radius ).tiles
+        return pfov.PointOfView(camp.isometric_map, target[0], target[1], self.radius).tiles
     def get_targets( self, camp, origin ):
-        return pfov.PointOfView( camp.scene, origin[0], origin[1], self.reach ).tiles
+        return pfov.PointOfView(camp.isometric_map, origin[0], origin[1], self.reach).tiles
     def get_delay_point( self, origin, target ):
         if self.delay_from < 0:
             return origin
@@ -64,7 +64,7 @@ class Line( object ):
         tiles.remove( origin )
         return tiles
     def get_targets( self, camp, origin ):
-        tiles = pfov.PointOfView( camp.scene, origin[0], origin[1], self.reach ).tiles
+        tiles = pfov.PointOfView(camp.isometric_map, origin[0], origin[1], self.reach).tiles
         tiles.remove( origin )
         return tiles
     def get_delay_point( self, origin, target ):
@@ -107,7 +107,7 @@ class SelfCentered( object ):
         self.exclude_middle = exclude_middle
         self.delay_from = delay_from
     def get_area( self, camp, origin, target ):
-        tiles = pfov.PointOfView( camp.scene, origin[0], origin[1], self.radius ).tiles
+        tiles = pfov.PointOfView(camp.isometric_map, origin[0], origin[1], self.radius).tiles
         if self.exclude_middle:
             tiles.remove( origin )
         return tiles
@@ -134,7 +134,7 @@ class SingleTarget( object ):
         tiles.add( target )
         return tiles
     def get_targets( self, camp, origin ):
-        return pfov.PointOfView( camp.scene, origin[0], origin[1], self.reach ).tiles
+        return pfov.PointOfView(camp.isometric_map, origin[0], origin[1], self.reach).tiles
     def get_delay_point( self, origin, target ):
         if self.delay_from < 0:
             return origin

@@ -30,7 +30,7 @@ class Waypoint( object ):
     desc = ""
     desctags = tuple()
     def __init__( self, scene=None, pos=(0,0), plot_locked=False, desc=None, anchor=None, name='' ):
-        """Place this waypoint in a scene."""
+        """Place this waypoint in a isometric_map."""
         if scene:
             self.place( scene, pos )
         self.plot_locked = plot_locked

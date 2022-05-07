@@ -357,9 +357,6 @@ def wait_event():
     return ev
 
 
-def anim_delay():
-    while wait_event().type != TIMEREVENT:
-        pass
 
 
 def alert(text, font=None):

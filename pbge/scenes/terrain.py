@@ -24,26 +24,26 @@ class FloorBorder( object ):
         """Return the wall border frame for this tile."""
         edges = 0
         check_nw,check_ne,check_sw,check_se=True,True,True,True
-        if view.scene.get_floor(x-1,y) is self.terrain_to_seek:
+        if view.isometric_map.get_floor(x - 1, y) is self.terrain_to_seek:
             edges += 1
             check_nw,check_sw=False,False
-        if view.scene.get_floor(x,y-1) is self.terrain_to_seek:
+        if view.isometric_map.get_floor(x, y - 1) is self.terrain_to_seek:
             edges += 2
             check_nw,check_ne=False,False
-        if view.scene.get_floor(x+1,y) is self.terrain_to_seek:
+        if view.isometric_map.get_floor(x + 1, y) is self.terrain_to_seek:
             edges += 4
             check_ne,check_se=False,False
-        if view.scene.get_floor(x,y+1) is self.terrain_to_seek:
+        if view.isometric_map.get_floor(x, y + 1) is self.terrain_to_seek:
             edges += 8
             check_sw,check_se=False,False
         corners = 16
-        if check_nw and view.scene.get_floor(x-1,y-1) is self.terrain_to_seek:
+        if check_nw and view.isometric_map.get_floor(x - 1, y - 1) is self.terrain_to_seek:
             corners += 1
-        if check_ne and view.scene.get_floor(x+1,y-1) is self.terrain_to_seek:
+        if check_ne and view.isometric_map.get_floor(x + 1, y - 1) is self.terrain_to_seek:
             corners += 2
-        if check_se and view.scene.get_floor(x+1,y+1) is self.terrain_to_seek:
+        if check_se and view.isometric_map.get_floor(x + 1, y + 1) is self.terrain_to_seek:
             corners += 4
-        if check_sw and view.scene.get_floor(x-1,y+1) is self.terrain_to_seek:
+        if check_sw and view.isometric_map.get_floor(x - 1, y + 1) is self.terrain_to_seek:
             corners += 8
 
         return edges,corners
@@ -351,23 +351,23 @@ class TerrSetTerrain( Terrain ):
         """Draw terrain that should appear in front of a model in the same tile"""
         if self.image_top:
             spr = view.get_terrain_sprite( self.image_top, (x,y), transparent=self.transparent )
-            spr.render( dest, view.scene.data.get((x,y),0) )
+            spr.render(dest, view.isometric_map.data.get((x, y), 0))
     @classmethod
     def render_biddle( self, dest, view, x, y ):
         """Draw terrain that should appear in front of a model in the same tile"""
         if self.image_biddle:
             spr = view.get_terrain_sprite( self.image_biddle, (x,y), transparent=self.transparent )
-            spr.render( dest, view.scene.data.get((x,y),0) )
+            spr.render(dest, view.isometric_map.data.get((x, y), 0))
     @classmethod
     def render_middle( self, dest, view, x, y ):
         """Draw terrain that should appear in front of a model in the same tile"""
         if self.image_middle:
             spr = view.get_terrain_sprite( self.image_middle, (x,y), transparent=self.transparent )
-            spr.render( dest, view.scene.data.get((x,y),0) )
+            spr.render(dest, view.isometric_map.data.get((x, y), 0))
     @classmethod
     def render_bottom( self, dest, view, x, y ):
         """Draw terrain that should appear behind a model in the same tile"""
         if self.image_bottom:
             spr = view.get_terrain_sprite( self.image_bottom, (x,y), transparent=self.transparent )
-            spr.render( dest, view.scene.data.get((x,y),0) )
+            spr.render(dest, view.isometric_map.data.get((x, y), 0))
 
