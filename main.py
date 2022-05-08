@@ -24,6 +24,8 @@ while keep_going:
         kengi.flip()
     elif gdi.type == pygame.KEYDOWN and gdi.key == pygame.K_ESCAPE:
         keep_going = False
+    elif gdi.type == pygame.QUIT:
+        keep_going = False
 
 
 kengi.quit()  # instead of pygame.quit()

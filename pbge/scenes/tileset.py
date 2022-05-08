@@ -15,15 +15,20 @@ class IsometricTile():
         self.id = id
         self.tile_surface = tile_surface
         if hflip:
-            self.hflip_surface = pygame.transform.flip(tile_surface, True, False)
+            self.hflip_surface = pygame.transform.flip(tile_surface, True, False).convert_alpha()
+            self.hflip_surface.set_colorkey(tile_surface.get_colorkey(), tile_surface.get_flags())
         else:
             self.hflip_surface = None
+
         if vflip:
-            self.vflip_surface = pygame.transform.flip(tile_surface, False, True)
+            self.vflip_surface = pygame.transform.flip(tile_surface, False, True).convert_alpha()
+            self.vflip_surface.set_colorkey(tile_surface.get_colorkey(), tile_surface.get_flags())
         else:
             self.vflip_surface = None
+
         if hflip and vflip:
-            self.hvflip_surface = pygame.transform.flip(tile_surface, True, True)
+            self.hvflip_surface = pygame.transform.flip(tile_surface, True, True).convert_alpha()
+            self.hvflip_surface.set_colorkey(tile_surface.get_colorkey(), tile_surface.get_flags())
         else:
             self.hvflip_surface = None
 
