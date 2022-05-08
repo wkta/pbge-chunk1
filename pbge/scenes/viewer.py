@@ -99,13 +99,13 @@ class SceneView( object ):
         # measure everything.
         ox = float(-ry * self.half_tile_width)/self.half_tile_height - self.tile_width
 
+        # Because of the way Python handles division, we need to apply a little nudge right here.
+        if rx-ox < 0:
+            ox += self.tile_width
+
         # Now that we have that x origin, we can determine this screen position's x coordinate by dividing by the
         # tile width. Fantastic.
         return int((rx - ox)/self.tile_width) + 1
-
-    def fmap_x( self, sx, sy ):
-        """Return the map x column for the given screen coordinates."""
-        return (float( sx - self.x_off - self.half_tile_width) / self.half_tile_width + float(sy - self.y_off - self.tile_height) / self.half_tile_height - 1) / 2 - 1
 
     def map_y(self, sx, sy, xoffset_override=None, yoffset_override=None):
         """Return the map y row for the given screen coordinates."""
@@ -126,13 +126,13 @@ class SceneView( object ):
         # measure everything.
         oy = float(rx * self.half_tile_height)/self.half_tile_width - self.tile_height
 
+        # Because of the way Python handles division, we need to apply a little nudge right here.
+        if ry-oy < 0:
+            oy += self.tile_height
+
         # Now that we have that x origin, we can determine this screen position's x coordinate by dividing by the
         # tile width. Fantastic.
         return int((ry - oy)/self.tile_height) + 1
-
-    def fmap_y( self, sx, sy ):
-        """Return the map y row for the given screen coordinates."""
-        return (float(sy - self.y_off - self.tile_height) / self.half_tile_height - float(sx - self.x_off - self.half_tile_width) / self.half_tile_width - 1) / 2
 
     def new_offset_is_within_bounds(self, nuxoff, nuyoff):
         mx = self.map_x(self.screen.get_width()//2, self.screen.get_height()//2)
