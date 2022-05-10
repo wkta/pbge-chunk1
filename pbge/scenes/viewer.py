@@ -15,15 +15,12 @@ def anim_delay():
     while wait_event().type != TIMEREVENT:
         pass
 
+from .tileset import FLIPPED_HORIZONTALLY_FLAG
+from .tileset import FLIPPED_VERTICALLY_FLAG
+from .tileset import NOT_ALL_FLAGS
 
-FLIPPED_HORIZONTALLY_FLAG  = 0x80000000
-FLIPPED_VERTICALLY_FLAG    = 0x40000000
-FLIPPED_DIAGONALLY_FLAG    = 0x20000000
-ROTATED_HEXAGONAL_120_FLAG = 0x10000000
 
-NOT_ALL_FLAGS = 0x0FFFFFFF
-
-class SceneView( object ):
+class IsometricMapViewer(object):
     def __init__(self, isometric_map, screen, postfx=None, cursor=None):
         self.anim_list = list()
         self.anims = collections.defaultdict(list)
@@ -73,10 +70,32 @@ class SceneView( object ):
         """Return the relative y position of this tile, ignoring offset."""
         return (y * self.half_tile_height) + (x * self.half_tile_height)
 
-    def screen_coords(self, x, y):
-        return (self.relative_x(x - 1, y - 1) + self.x_off, self.relative_y(x - 1, y - 1) + self.y_off)
+    def screen_coords(self, x, y, extra_x_offset=0, extra_y_offset=0):
+        return (self.relative_x(x - 1, y - 1) + self.x_off + extra_x_offset,
+                self.relative_y(x - 1, y - 1) + self.y_off + extra_y_offset)
 
-    def map_x(self, sx, sy, xoffset_override=None, yoffset_override=None):
+    @staticmethod
+    def static_map_x(rx, ry, tile_width, tile_height, half_tile_width, half_tile_height, return_int=True):
+        # Return the map coordinates for the relative_x, relative_y coordinates. All x,y offsets- including both
+        # the view offset and the layer offset- should already have been applied. This method is needed for calculating
+        # the layer coords of objects imported from Tiled, which have pixel coords.
+        #
+        # Calculate the x position of map_x tile -1 at ry. There is no tile -1, but this is the origin from which we
+        # measure everything.
+        ox = float(-ry * half_tile_width)/half_tile_height - tile_width
+
+        # Because of the way Python handles division, we need to apply a little nudge right here.
+        if rx-ox < 0 and return_int:
+            ox += tile_width
+
+        # Now that we have that x origin, we can determine this screen position's x coordinate by dividing by the
+        # tile width. Fantastic.
+        if return_int:
+            return int((rx - ox)/tile_width) + 1
+        else:
+            return (rx - ox)/tile_width + 1
+
+    def map_x(self, sx, sy, xoffset_override=None, yoffset_override=None, return_int=True):
         """Return the map x row for the given screen coordinates."""
         if xoffset_override is None:
             x_off = self.x_off
@@ -95,19 +114,31 @@ class SceneView( object ):
         rx = sx - x_off
         ry = sy - y_off
 
+        return self.static_map_x(rx, ry, self.tile_width, self.tile_height, self.half_tile_width, self.half_tile_height,
+                                 return_int=return_int)
+
+    @staticmethod
+    def static_map_y(rx, ry, tile_width, tile_height, half_tile_width, half_tile_height, return_int=True):
+        # Return the map coordinates for the relative_x, relative_y coordinates. All x,y offsets- including both
+        # the view offset and the layer offset- should already have been applied. This method is needed for calculating
+        # the layer coords of objects imported from Tiled, which have pixel coords.
+        #
         # Calculate the x position of map_x tile -1 at ry. There is no tile -1, but this is the origin from which we
         # measure everything.
-        ox = float(-ry * self.half_tile_width)/self.half_tile_height - self.tile_width
+        oy = float(rx * half_tile_height)/half_tile_width - tile_height
 
         # Because of the way Python handles division, we need to apply a little nudge right here.
-        if rx-ox < 0:
-            ox += self.tile_width
+        if ry-oy < 0 and return_int:
+            oy += tile_height
 
         # Now that we have that x origin, we can determine this screen position's x coordinate by dividing by the
         # tile width. Fantastic.
-        return int((rx - ox)/self.tile_width) + 1
+        if return_int:
+            return int((ry - oy)/tile_height) + 1
+        else:
+            return (ry - oy)/tile_height + 1
 
-    def map_y(self, sx, sy, xoffset_override=None, yoffset_override=None):
+    def map_y(self, sx, sy, xoffset_override=None, yoffset_override=None, return_int=True):
         """Return the map y row for the given screen coordinates."""
         if xoffset_override is None:
             x_off = self.x_off
@@ -122,17 +153,8 @@ class SceneView( object ):
         rx = sx - x_off
         ry = sy - y_off
 
-        # Calculate the x position of map_x tile -1 at ry. There is no tile -1, but this is the origin from which we
-        # measure everything.
-        oy = float(rx * self.half_tile_height)/self.half_tile_width - self.tile_height
-
-        # Because of the way Python handles division, we need to apply a little nudge right here.
-        if ry-oy < 0:
-            oy += self.tile_height
-
-        # Now that we have that x origin, we can determine this screen position's x coordinate by dividing by the
-        # tile width. Fantastic.
-        return int((ry - oy)/self.tile_height) + 1
+        return self.static_map_y(rx, ry, self.tile_width, self.tile_height, self.half_tile_width, self.half_tile_height,
+                                 return_int=return_int)
 
     def new_offset_is_within_bounds(self, nuxoff, nuyoff):
         mx = self.map_x(self.screen.get_width()//2, self.screen.get_height()//2)
@@ -153,17 +175,6 @@ class SceneView( object ):
             elif my >= self.isometric_map.height:
                 my = self.isometric_map.height - 1
             self.focus(mx,my)
-
-            #print("Intended: {}, {}".format(mx,my))
-            #print("Actual: {}, {}".format(self.map_x(self.screen.get_width()//2, self.screen.get_height()//2), self.map_y(self.screen.get_width()//2, self.screen.get_height()//2)))
-        #if -self.x_off < self.relative_x(0 , self.isometric_map.height - 1):
-        #    self.x_off = -self.relative_x(0, self.isometric_map.height - 1)
-        #elif -self.x_off > self.relative_x(self.isometric_map.width - 1 , 0):
-        #    self.x_off = -self.relative_x(self.isometric_map.width - 1, 0)
-        #if -self.y_off < self.relative_y( 0 , 0 ):
-        #    self.y_off = -self.relative_y( 0 , 0 )
-        #elif -self.y_off > self.relative_y(self.isometric_map.width - 1 , self.isometric_map.height - 1):
-        #    self.y_off = -self.relative_y(self.isometric_map.width - 1, self.isometric_map.height - 1)
 
     def focus(self, x, y):
         if self.isometric_map.on_the_map(x,y):
@@ -223,7 +234,7 @@ class SceneView( object ):
         self.anim_list += args
         self.handle_anim_sequence()
 
-    def PosToKey( self, pos ):
+    def pos_to_key(self, pos):
         # Convert the x,y coordinates to a model_map key...
         if pos:
             x,y = pos
@@ -232,7 +243,7 @@ class SceneView( object ):
             return "IT'S NOT ON THE MAP ALRIGHT?!"
 
     def model_depth( self, model ):
-        return self.relative_y( model.pos[0], model.pos[1] )
+        return self.relative_y( model.x, model.y )
 
     def update_camera(self, screen_area, mouse_x, mouse_y):
         # Check for map scrolling, depending on mouse position.
@@ -277,27 +288,18 @@ class SceneView( object ):
         visible_area.inflate_ip(self.tile_width, self.isometric_map.tile_height)
         visible_area.h += self.isometric_map.tile_height - self.isometric_map.layers[-1].offsety
 
-        # Record all of the isometric_map contents for display when their tile comes up.
-        """
-        self.modelmap.clear()
-        self.uppermap.clear()
-        self.undermap.clear()
-        self.waypointmap.clear()
-        for m in self.isometric_map.contents:
-            if hasattr( m , 'render' ) and self.PosToKey(m.pos) in self.isometric_map.in_sight:
-                d_pos = self.PosToKey(m.pos)
-                if not m.hidden:
-                    self.modelmap[d_pos].append(m)
-                if self.isometric_map.model_altitude(m, *d_pos) >= 0:
-                    self.uppermap[ d_pos ].append( m )
-                else:
-                    self.undermap[ d_pos ].append( m )
-            elif isinstance( m, waypoints.Waypoint ) and m.name:
-                # Nameless waypoints are hidden. They probably serve some
-                # utility purpose, but the player doesn't have to know they're
-                # there.
-                self.waypointmap[m.pos].append(m)
-        """
+        # Record all of the objectgroup contents for display when their tile comes up.
+        objectgroup_contents = dict()
+        for k,v in self.isometric_map.objectgroups.items():
+            objectgroup_contents[k] = collections.defaultdict(dict)
+            for ob in v.contents:
+                sx,sy = self.screen_coords(ob.x, ob.y, k.offsetx + v.offsetx, k.offsety + v.offsety)
+                mx = self.map_x(sx, sy, return_int=False)
+                my = self.map_y(sx, sy, return_int=False)
+                obkey = self.pos_to_key((mx,my))
+                if obkey not in objectgroup_contents[k]:
+                    objectgroup_contents[k][obkey] = list()
+                objectgroup_contents[k][obkey].append(ob)
 
         while keep_going:
             # In order to allow smooth sub-tile movement of stuff, we have
@@ -313,18 +315,25 @@ class SceneView( object ):
                         for x,y in line_cache[current_line]:
                             gid = layer[x, y]
                             tile_id = gid & NOT_ALL_FLAGS
-                            #if gid > 9 or gid < 0:
-                                #print("Weirdo {} id {} at {} {}".format(gid,tile_id,x,y))
                             if tile_id > 0:
-                                #if tile_id == 5:
-                                #    print("Pipes: {} {}".format(x,y))
                                 my_tile = self.isometric_map.tilesets[tile_id]
                                 sx, sy = self.screen_coords(x,y)
                                 my_tile(self.screen, sx, sy + layer.offsety, gid & FLIPPED_HORIZONTALLY_FLAG,
                                         gid & FLIPPED_VERTICALLY_FLAG)
 
+                            if current_line > 1 and layer in objectgroup_contents and (x-1,y) in objectgroup_contents[layer]:
+                                # After drawing the terrain, draw any objects in the previous cell.
+                                objectgroup_contents[layer][(x-1,y)].sort(key = self.model_depth)
+                                for ob in objectgroup_contents[layer][(x-1,y)]:
+                                    sx, sy = self.screen_coords(
+                                        ob.x, ob.y, layer.offsetx + self.isometric_map.objectgroups[layer].offsetx,
+                                        layer.offsety + self.isometric_map.objectgroups[layer].offsety
+                                    )
+                                    ob(self.screen, sx, sy, self.isometric_map)
+
                     elif line_cache[current_line] is None and layer == self.isometric_map.layers[-1]:
                         keep_going = False
+
                 else:
                     break
 

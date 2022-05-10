@@ -1,13 +1,19 @@
 import katagames_engine as kengi
 pygame = kengi.pygame
-from zlib import decompress
-from base64 import b64decode
 
 from pbge import image
 
 from xml.etree import ElementTree
+import json
 
 import os
+
+FLIPPED_HORIZONTALLY_FLAG  = 0x80000000
+FLIPPED_VERTICALLY_FLAG    = 0x40000000
+FLIPPED_DIAGONALLY_FLAG    = 0x20000000
+ROTATED_HEXAGONAL_120_FLAG = 0x10000000
+
+NOT_ALL_FLAGS = 0x0FFFFFFF
 
 
 class IsometricTile():
@@ -76,21 +82,23 @@ class IsometricTileset:
             self.tiles.append(IsometricTile(t+1, myimage.get_subsurface(t), self.hflip, self.vflip ))
 
     @classmethod
-    def fromxml(cls, tag, firstgid=None, hacksource=None, hacktileset=None):
+    def fromxml(cls, tag, firstgid=None):
         print('fromxml (isometrically)')
         if 'source' in tag.attrib:
+            # Instead of a tileset proper, we have been handed an external tileset tag from inside a map file.
+            # Load the external tileset and continue on as if nothing had happened.
             firstgid = int(tag.attrib['firstgid'])
-            if hacksource:
-                srcc = hacksource
-            else:
-                srcc = tag.attrib['source']
+            srcc = tag.attrib['source']
 
             #TODO: Another direct disk access here.
-            with open(os.path.join("assets", srcc)) as f:
-                print('opened ', srcc)
-                tileset = ElementTree.fromstring(f.read())
-
-            return cls.fromxml(tileset, firstgid, hacktileset=hacktileset)
+            if srcc.endswith(("tsx","xml")):
+                with open(os.path.join("assets", srcc)) as f:
+                    print('opened ', srcc)
+                    tag = ElementTree.fromstring(f.read())
+            elif srcc.endswith(("tsj","json")):
+                with open(os.path.join("assets", srcc)) as f:
+                    jdict = json.load(f)
+                return cls.fromjson(jdict, firstgid)
 
         name = tag.attrib['name']
         if firstgid is None:
@@ -101,18 +109,62 @@ class IsometricTileset:
 
         tileset = cls(name, tile_width, tile_height, firstgid)
 
+        # TODO: The transformations must be registered before any of the tiles. Is there a better way to do this
+        # than iterating through the list twice? I know this is a minor thing but it bothers me.
+        for c in tag:  # .getchildren():
+            if c.tag == "transformations":
+                tileset.vflip = int(c.attrib.get("vflip", 0)) == 1
+                tileset.hflip = int(c.attrib.get("hflip", 0)) == 1
+                print("Flip values: v={} h={}".format(tileset.vflip, tileset.hflip))
+
 
         for c in tag:  # .getchildren():
             #TODO: The tileset can only contain an "image" tag or multiple "tile" tags; it can't combine the two.
             # This should be enforced. For now, I'm just gonna support spritesheet tiles.
             if c.tag == "image":
                 # create a tileset
-                arg_sheet = c.attrib['source'] if (hacktileset is None) else hacktileset
+                arg_sheet = c.attrib['source']
                 tileset.add_image(arg_sheet, num_tiles)
-            elif c.tag == "transformations":
-                tileset.vflip = int(c.attrib.get("vflip", 0)) == 1
-                tileset.hflip = int(c.attrib.get("hflip", 0)) == 1
-                print("Flip values: v={} h={}".format(tileset.vflip, tileset.hflip))
+
+        return tileset
+
+    @classmethod
+    def fromjson(cls, jdict, firstgid=None):
+        print('fromjson (isometrically)')
+        if 'source' in jdict:
+            firstgid = int(jdict['firstgid'])
+            srcc = jdict['source']
+
+            #TODO: Another direct disk access here.
+            if srcc.endswith(("tsx","xml")):
+                with open(os.path.join("assets", srcc)) as f:
+                    print('opened ', srcc)
+                    tag = ElementTree.fromstring(f.read())
+                    return cls.fromxml(tag, firstgid)
+            elif srcc.endswith(("tsj","json")):
+                with open(os.path.join("assets", srcc)) as f:
+                    jdict = json.load(f)
+
+        name = jdict['name']
+        if firstgid is None:
+            firstgid = int(jdict.get('firstgid', 1))
+        tile_width = int(jdict['tilewidth'])
+        tile_height = int(jdict['tileheight'])
+        num_tiles = int(jdict['tilecount'])
+
+        tileset = cls(name, tile_width, tile_height, firstgid)
+
+        if "transformations" in jdict:
+            c = jdict["transformations"]
+            tileset.vflip = int(c.get("vflip", 0)) == 1
+            tileset.hflip = int(c.get("hflip", 0)) == 1
+
+        #TODO: The tileset can only contain an "image" tag or multiple "tile" tags; it can't combine the two.
+        # This should be enforced. For now, I'm just gonna support spritesheet tiles.
+
+        # create a tileset
+        arg_sheet = jdict['image']
+        tileset.add_image(arg_sheet, num_tiles)
 
         return tileset
 
