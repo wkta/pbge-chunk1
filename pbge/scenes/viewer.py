@@ -9,7 +9,7 @@ from .. import wait_event, TIMEREVENT
 
 from . import image
 
-SCROLL_STEP = 12
+SCROLL_STEP = 8
 
 def anim_delay():
     while wait_event().type != TIMEREVENT:
@@ -84,13 +84,12 @@ class IsometricMapViewer(object):
         # measure everything.
         ox = float(-ry * half_tile_width)/half_tile_height - tile_width
 
-        # Because of the way Python handles division, we need to apply a little nudge right here.
-        if rx-ox < 0 and return_int:
-            ox += tile_width
-
         # Now that we have that x origin, we can determine this screen position's x coordinate by dividing by the
         # tile width. Fantastic.
         if return_int:
+            # Because of the way Python handles division, we need to apply a little nudge right here.
+            if rx - ox < 0:
+                ox += tile_width
             return int((rx - ox)/tile_width) + 1
         else:
             return (rx - ox)/tile_width + 1
@@ -127,13 +126,13 @@ class IsometricMapViewer(object):
         # measure everything.
         oy = float(rx * half_tile_height)/half_tile_width - tile_height
 
-        # Because of the way Python handles division, we need to apply a little nudge right here.
-        if ry-oy < 0 and return_int:
-            oy += tile_height
 
         # Now that we have that x origin, we can determine this screen position's x coordinate by dividing by the
         # tile width. Fantastic.
         if return_int:
+            # Because of the way Python handles division, we need to apply a little nudge right here.
+            if ry - oy < 0:
+                oy += tile_height
             return int((ry - oy)/tile_height) + 1
         else:
             return (ry - oy)/tile_height + 1
@@ -181,21 +180,7 @@ class IsometricMapViewer(object):
             self.x_off = self.screen.get_width()//2 - self.relative_x(x,y)
             self.y_off = self.screen.get_height()//2 - self.relative_y(x,y)
 
-    def next_tile( self, x0,y0,x, y, line, sx, sy, screen_area ):
-        """Locate the next map tile, moving left to right across the screen. """
-        keep_going = True
-        if (sx + self.tile_width) > (screen_area.x + screen_area.w):
-            if ( sy+self.half_tile_height) > (screen_area.y + screen_area.h):
-                keep_going = False
-            x = x0 + line // 2
-            y = y0 + ( line + 1 ) // 2
-            line += 1
-        else:
-            x += 1
-            y -= 1
-        return x,y,line,keep_going
-
-    def get_line(self, x0, y0, line_number, visible_area):
+    def get_horizontal_line(self, x0, y0, line_number, visible_area):
         mylist = list()
         x = x0 + line_number // 2
         y = y0 + (line_number + 1) // 2
@@ -286,7 +271,7 @@ class IsometricMapViewer(object):
         # because we probably have to draw cells that are not fully on the map.
         visible_area = self.screen.get_rect()
         visible_area.inflate_ip(self.tile_width, self.isometric_map.tile_height)
-        visible_area.h += self.isometric_map.tile_height - self.isometric_map.layers[-1].offsety
+        visible_area.h += self.isometric_map.tile_height + self.half_tile_height - self.isometric_map.layers[-1].offsety
 
         # Record all of the objectgroup contents for display when their tile comes up.
         objectgroup_contents = dict()
@@ -304,7 +289,7 @@ class IsometricMapViewer(object):
         while keep_going:
             # In order to allow smooth sub-tile movement of stuff, we have
             # to draw everything in a particular order.
-            nuline = self.get_line(x0, y0, line_number, visible_area)
+            nuline = self.get_horizontal_line(x0, y0, line_number, visible_area)
             line_cache.append(nuline)
             current_y_offset = self.isometric_map.layers[0].offsety
             current_line = len(line_cache) - 1
@@ -321,18 +306,20 @@ class IsometricMapViewer(object):
                                 my_tile(self.screen, sx, sy + layer.offsety, gid & FLIPPED_HORIZONTALLY_FLAG,
                                         gid & FLIPPED_VERTICALLY_FLAG)
 
-                            if current_line > 1 and layer in objectgroup_contents and (x-1,y) in objectgroup_contents[layer]:
-                                # After drawing the terrain, draw any objects in the previous cell.
-                                objectgroup_contents[layer][(x-1,y)].sort(key = self.model_depth)
-                                for ob in objectgroup_contents[layer][(x-1,y)]:
+                    elif line_cache[current_line] is None and layer == self.isometric_map.layers[-1]:
+                        keep_going = False
+
+                    # After drawing the terrain, draw any objects in the previous line.
+                    if current_line > 1 and line_cache[current_line-1] and layer in objectgroup_contents:
+                        for x, y in line_cache[current_line-1]:
+                            if (x,y) in objectgroup_contents[layer]:
+                                objectgroup_contents[layer][(x,y)].sort(key = self.model_depth)
+                                for ob in objectgroup_contents[layer][(x,y)]:
                                     sx, sy = self.screen_coords(
                                         ob.x, ob.y, layer.offsetx + self.isometric_map.objectgroups[layer].offsetx,
                                         layer.offsety + self.isometric_map.objectgroups[layer].offsety
                                     )
                                     ob(self.screen, sx, sy, self.isometric_map)
-
-                    elif line_cache[current_line] is None and layer == self.isometric_map.layers[-1]:
-                        keep_going = False
 
                 else:
                     break

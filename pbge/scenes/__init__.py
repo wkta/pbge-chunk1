@@ -56,13 +56,13 @@ class IsometricMapObject(KeyObject):
     def deweirdify_coordinates(tx, ty, givenlayer):
         # It took ages to figure out the coordinate system that Tiled uses for objects on isometric maps. At first I
         # thought the pixel coordinate origin would be the upper left corner of the map's bounding box. It isn't.
-        # In fact, it isn't a normal cartesian coordinate system at all. The pixel x,y values are measured from the
-        # left edge and the top edge of the map, respectively. I cannot think of any situation for which this would
-        # be a useful way to store pixel coordinates, but there you go.
+        # In fact, it isn't a normal cartesian coordinate system at all. The pixel x,y values are the cell index
+        # multiplied by the cell height. I cannot think of any situation for which this would be a useful way to store
+        # pixel coordinates, but there you go.
         #
-        # This function takes the Tiled coordinates and remaps them to screen coordinates with the origin 0,0 located
-        # at the midbottom of tile 0,0. Feel free to delete this long rant of a comment. Or leave it as a warning to
-        # others. I am just glad to finally understand what's going on.
+        # This function takes the Tiled pixel coordinates and changes them to tilemap cell coordinates. Feel free to
+        # delete this long rant of a comment. Or leave it as a warning to others. I am just glad to finally understand
+        # what's going on.
 
         mx = tx/givenlayer.tile_height - 1.0
         my = ty/givenlayer.tile_height - 1.0
