@@ -60,7 +60,7 @@ class QuarterCursor(object):
     def render(self, view):
         if self.visible:
             sx, sy = view.screen_coords(float(self._doublex-1)/2.0, float(self._doubley-1)/2.0)
-            mydest = self.surf.get_rect(midbottom=(sx+self.layer.offsetx, sy+self.layer.offsety))
+            mydest = self.surf.get_rect(midbottom=(sx+self.layer.offsetx, sy+self.layer.offsety-2))
             view.screen.blit(self.surf, mydest)
 
     def set_position(self, view, x, y):
@@ -75,6 +75,9 @@ class QuarterCursor(object):
     def y(self):
         return self._doubley//2
 
+    def focus(self, view):
+        view.focus(float(self._doublex - 1) / 2.0, float(self._doubley - 1) / 2.0)
+
     def update(self, view, ev):
         if ev.type == pygame.MOUSEMOTION:
             mouse_x, mouse_y = kengi.core.proj_to_vscreen(pygame.mouse.get_pos())
@@ -84,29 +87,29 @@ class QuarterCursor(object):
             if ev.key == pygame.K_KP8:
                 self._doublex -= 1
                 self._doubley -= 1
-                view.focus(self.x, self.y)
+                self.focus(view)
             elif ev.key == pygame.K_KP9:
                 self._doubley -= 1
-                view.focus(self.x, self.y)
+                self.focus(view)
             elif ev.key == pygame.K_KP6:
                 self._doublex += 1
                 self._doubley -= 1
-                view.focus(self.x, self.y)
+                self.focus(view)
             elif ev.key == pygame.K_KP3:
                 self._doublex += 1
-                view.focus(self.x, self.y)
+                self.focus(view)
             elif ev.key == pygame.K_KP2:
                 self._doublex += 1
                 self._doubley += 1
-                view.focus(self.x, self.y)
+                self.focus(view)
             elif ev.key == pygame.K_KP1:
                 self._doubley += 1
-                view.focus(self.x, self.y)
+                self.focus(view)
             elif ev.key == pygame.K_KP4:
                 self._doublex -= 1
                 self._doubley += 1
-                view.focus(self.x, self.y)
+                self.focus(view)
             elif ev.key == pygame.K_KP7:
                 self._doublex -= 1
-                view.focus(self.x, self.y)
+                self.focus(view)
 

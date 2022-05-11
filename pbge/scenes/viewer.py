@@ -298,6 +298,7 @@ class IsometricMapViewer(object):
                     if current_line > 1 and layer in objectgroup_contents and line_cache[current_line - 1]:
                         # After drawing the terrain, draw any objects in the previous cell.
                         for x, y in line_cache[current_line - 1]:
+
                             if (x, y) in objectgroup_contents[layer]:
                                 objectgroup_contents[layer][(x, y)].sort(key=self.model_depth)
                                 for ob in objectgroup_contents[layer][(x, y)]:
