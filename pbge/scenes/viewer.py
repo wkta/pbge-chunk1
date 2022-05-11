@@ -14,7 +14,6 @@ from .tileset import NOT_ALL_FLAGS
 from .. import wait_event, TIMEREVENT
 
 pygame = kengi.pygame  # alias to keep on using pygame, easily
-SCROLL_STEP = 12
 SCROLL_STEP = 8
 
 
@@ -61,9 +60,7 @@ class IsometricMapViewer(object):
 
         self.cursor = cursor
 
-        self.debug_sprite = image.Image("assets/half-floor-tile.png")
-        # add-on
-        self.debug_sprite.bitmap.set_colorkey((255, 0, 255))
+        #self.debug_sprite = image.Image("assets/floor-tile.png")
 
     @property
     def mouse_tile(self):
@@ -295,6 +292,8 @@ class IsometricMapViewer(object):
                                 sx, sy = self.screen_coords(x, y)
                                 my_tile(self.screen, sx, sy + layer.offsety, gid & FLIPPED_HORIZONTALLY_FLAG,
                                         gid & FLIPPED_VERTICALLY_FLAG)
+                            if self.cursor and self.cursor.layer is layer and x == self.cursor.x and y == self.cursor.y:
+                                self.cursor.render(self)
 
                     if current_line > 1 and layer in objectgroup_contents and line_cache[current_line - 1]:
                         # After drawing the terrain, draw any objects in the previous cell.
@@ -319,13 +318,13 @@ class IsometricMapViewer(object):
                     current_line -= 1
                     current_y_offset = layer.offsety
 
-            mx = self.map_x(mouse_x, mouse_y)
-            my = self.map_y(mouse_x, mouse_y)
-            if self.isometric_map.on_the_map(mx, my):
-                mydest = self.debug_sprite.bitmap.get_rect(midbottom=self.screen_coords(mx, my))
-                self.debug_sprite.render(mydest, 0)
-
             line_number += 1
+
+        #mx = self.map_x(mouse_x, mouse_y)
+        #my = self.map_y(mouse_x, mouse_y)
+        #if self.isometric_map.on_the_map(mx, my):
+        #    mydest = self.debug_sprite.bitmap.get_rect(midbottom=self.screen_coords(mx, my))
+        #    self.debug_sprite.render(mydest, 0)
 
         self.phase = (self.phase + 1) % 600
         self._mouse_tile = (self.map_x(mouse_x, mouse_y), self.map_y(mouse_x, mouse_y))

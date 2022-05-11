@@ -13,11 +13,16 @@ pbge.init()
 
 tilemap = pbge.scenes.IsometricMap.load('assets/test_map.tmx')
 viewer = pbge.scenes.viewer.IsometricMapViewer(tilemap, screen)
+cursor_image = pygame.image.load("assets/half-floor-tile.png").convert_alpha()
+cursor_image.set_colorkey((255,0,255))
+viewer.cursor = pbge.scenes.mapcursor.QuarterCursor(0,0,cursor_image,tilemap.layers[1])
 
 keep_going = True
 
 while keep_going:
     gdi = pbge.wait_event()
+
+    viewer.check_event(gdi)
 
     if gdi.type == pbge.TIMEREVENT:
         viewer()
