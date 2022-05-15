@@ -457,7 +457,6 @@ def please_stand_by(caption=None):
 
 from . import frects
 from . import rpgmenu
-from . import scenes
 from . import image
 from . import widgets
 from . import dialogue

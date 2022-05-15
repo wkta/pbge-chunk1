@@ -8,23 +8,24 @@ pygame = kengi.pygame  # alias to keep on using pygame, easily
 screen = kengi.core.get_screen()  # new way to retrieve the surface used for display
 
 import pbge
-
 pbge.init()
 
-tilemap = pbge.scenes.IsometricMap.load('assets/test_map.tmx')
-tilemap2 = pbge.scenes.IsometricMap.load('assets/test_map2.tmx')
+import isometric_maps
+
+tilemap = isometric_maps.IsometricMap.load('assets/test_map.tmx')
+tilemap2 = isometric_maps.IsometricMap.load('assets/test_map2.tmx')
 
 maps = (tilemap, tilemap2)
 
-viewer = pbge.scenes.viewer.IsometricMapViewer(tilemap, screen, up_scroll_key=pygame.K_UP,
+viewer = isometric_maps.IsometricMapViewer(tilemap, screen, up_scroll_key=pygame.K_UP,
                                                down_scroll_key=pygame.K_DOWN, left_scroll_key=pygame.K_LEFT,
                                                right_scroll_key=pygame.K_RIGHT)
 cursor_image = pygame.image.load("assets/half-floor-tile.png").convert_alpha()
 cursor_image.set_colorkey((255, 0, 255))
-viewer.cursor = pbge.scenes.mapcursor.QuarterCursor(0, 0, cursor_image, tilemap.layers[1])
+viewer.cursor = isometric_maps.IsometricMapQuarterCursor(0, 0, cursor_image, tilemap.layers[1])
 
 
-class Character(pbge.scenes.IsometricMapObject):
+class Character(isometric_maps.IsometricMapObject):
     def __init__(self, x, y):
         super().__init__()
         self.x = x
