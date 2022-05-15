@@ -495,6 +495,14 @@ class IsometricMap():
         # Returns true if (x,y) is on the map, false otherwise
         return (x >= 0) and (x < self.width) and (y >= 0) and (y < self.height)
 
+    def get_layer_by_name(self, layer_name):
+        # The Layers type in Kengi supports indexing layers by name, but it doesn't support accessing layers by
+        # negative indices. I'm not sure that it supports slicing either. Anyhow, for now, only the map cursor needs
+        # to look up layers by name so this function should be good enough for the time being.
+        for l in self.layers:
+            if l.name == layer_name:
+                return l
+
 
 class IsometricMapViewer(object):
     def __init__(self, isometric_map, screen, postfx=None, cursor=None,
@@ -770,7 +778,7 @@ class IsometricMapViewer(object):
                                 sx, sy = self.screen_coords(x, y)
                                 my_tile(self.screen, sx, sy + layer.offsety, gid & FLIPPED_HORIZONTALLY_FLAG,
                                         gid & FLIPPED_VERTICALLY_FLAG)
-                            if self.cursor and self.cursor.layer is layer and x == self.cursor.x and y == self.cursor.y:
+                            if self.cursor and self.cursor.layer_name == layer.name and x == self.cursor.x and y == self.cursor.y:
                                 self.cursor.render(self)
 
                     if current_line > 1 and layer in objectgroup_contents and line_cache[current_line - 1]:
@@ -830,6 +838,8 @@ class IsometricMapViewer(object):
 
 
 class IsometricMapCursor(object):
+    # I haven't updated this for the new map system yet... I will do that ASAP, even though the QuarterCursor is
+    # the one that will be useful for Niobepolis.
     def __init__(self, x, y, image, frame=0, visible=True):
         self.x = x
         self.y = y
@@ -881,13 +891,14 @@ class IsometricMapQuarterCursor(object):
         self._doublex = int(x*2)
         self._doubley = int(y*2)
         self.surf = surf
-        self.layer = layer
+        self.layer_name = layer.name
         self.visible = visible
 
     def render(self, view):
         if self.visible:
             sx, sy = view.screen_coords(float(self._doublex-1)/2.0, float(self._doubley-1)/2.0)
-            mydest = self.surf.get_rect(midbottom=(sx+self.layer.offsetx, sy+self.layer.offsety-2))
+            mylayer = view.isometric_map.get_layer_by_name(self.layer_name)
+            mydest = self.surf.get_rect(midbottom=(sx+mylayer.offsetx, sy+mylayer.offsety-2))
             view.screen.blit(self.surf, mydest)
 
     def set_position(self, view, x, y):
