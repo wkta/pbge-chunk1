@@ -7,9 +7,8 @@ import katagames_engine as kengi
 pygame = kengi.pygame
 
 Tilesets = kengi.tmx.data.Tilesets
-Layers = kengi.tmx.data.Layers
+#Layers = kengi.tmx.data.Layers
 
-import math
 from . import movement, tileset
 import json
 
@@ -215,7 +214,8 @@ class ObjectGroup():
         for t in tag:
             if t.tag == "object":
                 if object_fun:
-                    mygroup.contents.append(IsometricMapObject.fromxml(t))
+                    pass
+                    #mygroup.contents.append(IsometricMapObject.fromxml(t))
                 elif "gid" in t.attrib:
                     mygroup.contents.append(IsometricMapObject.fromxml(
                         t, mygroup, givenlayer
@@ -233,7 +233,8 @@ class ObjectGroup():
         if "objects" in jdict:
             for t in jdict["objects"]:
                 if object_fun:
-                    mygroup.contents.append(IsometricMapObject.fromxml(t))
+                    pass
+                    #mygroup.contents.append(IsometricMapObject.fromxml(t))
                 elif "gid" in t.attrib:
                     mygroup.contents.append(IsometricMapObject.fromjson(
                         t, mygroup, givenlayer

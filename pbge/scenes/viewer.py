@@ -19,7 +19,8 @@ from .tileset import NOT_ALL_FLAGS
 
 
 class IsometricMapViewer(object):
-    def __init__(self, isometric_map, screen, postfx=None, cursor=None):
+    def __init__(self, isometric_map, screen, postfx=None, cursor=None,
+                 left_scroll_key=None, right_scroll_key=None, up_scroll_key=None, down_scroll_key=None):
         self.anim_list = list()
         self.anims = collections.defaultdict(list)
 
@@ -42,7 +43,26 @@ class IsometricMapViewer(object):
 
         self.cursor = cursor
 
+        self.left_scroll_key = left_scroll_key
+        self.right_scroll_key = right_scroll_key
+        self.up_scroll_key = up_scroll_key
+        self.down_scroll_key = down_scroll_key
+
+        self.camera_updated_this_frame = False
+
+        self._focused_object = None
+        self._focused_object_x0 = 0
+        self._focused_object_y0 = 0
+
         #self.debug_sprite = image.Image("assets/floor-tile.png")
+
+    def set_focused_object(self, fo):
+        if fo:
+            self._focused_object = fo
+            self._focused_object_x0 = fo.x
+            self._focused_object_y0 = fo.y
+        else:
+            self._focused_object = None
 
     def switch_map(self, isometric_map):
         self.isometric_map = isometric_map
@@ -50,6 +70,7 @@ class IsometricMapViewer(object):
         self.tile_height = isometric_map.tile_height
         self.half_tile_width = isometric_map.tile_width // 2
         self.half_tile_height = isometric_map.tile_height // 2
+        self.check_origin()
 
     @property
     def mouse_tile(self):
@@ -165,9 +186,9 @@ class IsometricMapViewer(object):
             self.focus(mx, my)
 
     def focus(self, x, y):
-        if self.isometric_map.on_the_map(x, y):
+        if self.isometric_map.on_the_map(int(x+0.99), int(y+0.99)):
             self.x_off = self.screen.get_width() // 2 - self.relative_x(x, y)
-            self.y_off = self.screen.get_height() // 2 - self.relative_y(x, y)
+            self.y_off = self.screen.get_height() // 2 - self.relative_y(x, y) + self.tile_height
 
     def get_horizontal_line(self, x0, y0, line_number, visible_area):
         mylist = list()
@@ -211,21 +232,13 @@ class IsometricMapViewer(object):
     def model_depth(self, model):
         return self.relative_y(model.x, model.y)
 
-    def update_camera(self, screen_area, mouse_x, mouse_y):
-        # Check for map scrolling, depending on mouse position.
-        if mouse_x < 20:
-            nu_x_off = self.x_off + SCROLL_STEP
-        elif mouse_x > (screen_area.right - 20):
-            nu_x_off = self.x_off - SCROLL_STEP
-        else:
-            nu_x_off = self.x_off
+    def update_camera(self, dx, dy):
+        # If the mouse and the arrow keys conflict, only one of them should win.
+        if self.camera_updated_this_frame:
+            return
 
-        if mouse_y < 20:
-            nu_y_off = self.y_off + SCROLL_STEP
-        elif mouse_y > (screen_area.bottom - 20):
-            nu_y_off = self.y_off - SCROLL_STEP
-        else:
-            nu_y_off = self.y_off
+        nu_x_off = self.x_off + dx
+        nu_y_off = self.y_off + dy
 
         mx = self.map_x(self.screen.get_width() // 2, self.screen.get_height() // 2, nu_x_off, nu_y_off)
         my = self.map_y(self.screen.get_width() // 2, self.screen.get_height() // 2, nu_x_off, nu_y_off)
@@ -233,6 +246,26 @@ class IsometricMapViewer(object):
         if self.isometric_map.on_the_map(mx, my):
             self.x_off = nu_x_off
             self.y_off = nu_y_off
+            self.camera_updated_this_frame = True
+
+    def check_mouse_scroll(self, screen_area, mouse_x, mouse_y):
+        # Check for map scrolling, depending on mouse position.
+        if mouse_x < 20:
+            dx = SCROLL_STEP
+        elif mouse_x > (screen_area.right - 20):
+            dx = -SCROLL_STEP
+        else:
+            dx = 0
+
+        if mouse_y < 20:
+            dy = SCROLL_STEP
+        elif mouse_y > (screen_area.bottom - 20):
+            dy = -SCROLL_STEP
+        else:
+            dy = 0
+
+        if dx or dy:
+            self.update_camera(dx, dy)
 
     def __call__(self):
         """Draws this mapview to the provided screen."""
@@ -240,7 +273,14 @@ class IsometricMapViewer(object):
         mouse_x, mouse_y = kengi.core.proj_to_vscreen(pygame.mouse.get_pos())
 
         self.screen.fill('black')
-        self.update_camera(screen_area, mouse_x, mouse_y)
+        self.camera_updated_this_frame = False
+        if self._focused_object and (self._focused_object_x0 != self._focused_object.x or
+                                     self._focused_object_y0 != self._focused_object.y):
+            self.focus(self._focused_object.x, self._focused_object.y)
+            self._focused_object_x0 = self._focused_object.x
+            self._focused_object_y0 = self._focused_object.y
+        else:
+            self.check_mouse_scroll(screen_area, mouse_x, mouse_y)
         x, y = self.map_x(0, 0) - 2, self.map_y(0, 0) - 1
         x0, y0 = x, y
         keep_going = True
@@ -325,3 +365,17 @@ class IsometricMapViewer(object):
     def check_event(self, ev):
         if self.cursor:
             self.cursor.update(self, ev)
+        mykeys = pygame.key.get_pressed()
+        dx, dy = 0, 0
+        if self.up_scroll_key and mykeys[self.up_scroll_key]:
+            dy = SCROLL_STEP
+        elif self.down_scroll_key and mykeys[self.down_scroll_key]:
+            dy = -SCROLL_STEP
+        if self.left_scroll_key and mykeys[self.left_scroll_key]:
+            dx = SCROLL_STEP
+        elif self.right_scroll_key and mykeys[self.right_scroll_key]:
+            dx = -SCROLL_STEP
+        if dx or dy:
+            self.update_camera(dx, dy)
+
+
