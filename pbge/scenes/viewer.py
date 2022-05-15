@@ -3,17 +3,8 @@ import katagames_engine as kengi
 pygame = kengi.pygame  # alias to keep on using pygame, easily
 
 import collections
-import weakref
-
-import katagames_engine as kengi
-
-from . import image
-from .tileset import FLIPPED_HORIZONTALLY_FLAG
-from .tileset import FLIPPED_VERTICALLY_FLAG
-from .tileset import NOT_ALL_FLAGS
 from .. import wait_event, TIMEREVENT
 
-pygame = kengi.pygame  # alias to keep on using pygame, easily
 SCROLL_STEP = 8
 
 
@@ -31,15 +22,6 @@ class IsometricMapViewer(object):
     def __init__(self, isometric_map, screen, postfx=None, cursor=None):
         self.anim_list = list()
         self.anims = collections.defaultdict(list)
-
-        self.modelmap = collections.defaultdict(list)
-        self.uppermap = collections.defaultdict(list)
-        self.undermap = collections.defaultdict(list)
-        self.waypointmap = collections.defaultdict(list)
-        self.fieldmap = dict()
-        self.modelsprite = weakref.WeakKeyDictionary()
-        self.namedsprite = dict()
-        self.darksprite = dict()
 
         self.isometric_map = isometric_map
         self.screen = screen
@@ -61,6 +43,13 @@ class IsometricMapViewer(object):
         self.cursor = cursor
 
         #self.debug_sprite = image.Image("assets/floor-tile.png")
+
+    def switch_map(self, isometric_map):
+        self.isometric_map = isometric_map
+        self.tile_width = isometric_map.tile_width
+        self.tile_height = isometric_map.tile_height
+        self.half_tile_width = isometric_map.tile_width // 2
+        self.half_tile_height = isometric_map.tile_height // 2
 
     @property
     def mouse_tile(self):
