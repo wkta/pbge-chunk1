@@ -53,6 +53,7 @@ class IsometricTile():
             self.hvflip_surface = None
 
     def __call__(self, dest_surface, x, y, hflip=False, vflip=False):
+        """Draw this tile on the dest_surface at the provided x,y coordinates."""
         if hflip and vflip:
             surf = self.hvflip_surface
         elif hflip:
@@ -89,7 +90,7 @@ class IsometricTileset:
     def get_tile(self, gid):
         return self.tiles[gid - self.firstgid]
 
-    def add_image(self, source, num_tiles):
+    def _add_image(self, source, num_tiles):
         # TODO: Make this bit compatible with Kenji.
         mysurf = pygame.image.load(os.path.join("assets", source)).convert_alpha()
         mysurf.set_colorkey((255, 0, 255))
@@ -143,7 +144,7 @@ class IsometricTileset:
             if c.tag == "image":
                 # create a tileset
                 arg_sheet = c.attrib['source']
-                tileset.add_image(arg_sheet, num_tiles)
+                tileset._add_image(arg_sheet, num_tiles)
 
         return tileset
 
@@ -183,7 +184,7 @@ class IsometricTileset:
 
         # create a tileset
         arg_sheet = jdict['image']
-        tileset.add_image(arg_sheet, num_tiles)
+        tileset._add_image(arg_sheet, num_tiles)
 
         return tileset
 
@@ -203,6 +204,7 @@ class IsometricMapObject():
         super().__init__(**keywords)
 
     def __call__(self, dest_surface, sx, sy, mymap):
+        """Draw this object at the requested surface coordinates on the provided surface."""
         if self.gid:
             tile_id = self.gid & NOT_ALL_FLAGS
             if tile_id > 0:
@@ -211,7 +213,7 @@ class IsometricMapObject():
                         self.gid & FLIPPED_VERTICALLY_FLAG)
 
     @staticmethod
-    def deweirdify_coordinates(tx, ty, givenlayer):
+    def _deweirdify_coordinates(tx, ty, givenlayer):
         # It took ages to figure out the coordinate system that Tiled uses for objects on isometric maps. At first I
         # thought the pixel coordinate origin would be the upper left corner of the map's bounding box. It isn't.
         # In fact, it isn't a normal cartesian coordinate system at all. The pixel x,y values are the cell index
@@ -234,7 +236,7 @@ class IsometricMapObject():
         # Convert the x,y pixel coordinates to x,y map coordinates.
         x = float(tag.attrib.get("x", 0))
         y = float(tag.attrib.get("y", 0))
-        myob.x, myob.y = cls.deweirdify_coordinates(x, y, givenlayer)
+        myob.x, myob.y = cls._deweirdify_coordinates(x, y, givenlayer)
         myob.gid = int(tag.attrib.get("gid"))
         myob.visible = int(tag.attrib.get("visible", 1))
         return myob
@@ -247,7 +249,7 @@ class IsometricMapObject():
         # Convert the x,y pixel coordinates to x,y map coordinates.
         x = jdict.get("x", 0)
         y = jdict.get("y", 0)
-        myob.x, myob.y = cls.deweirdify_coordinates(x, y, givenlayer)
+        myob.x, myob.y = cls._deweirdify_coordinates(x, y, givenlayer)
         myob.gid = jdict.get("gid")
         myob.visible = jdict.get("visible")
         return myob
@@ -544,7 +546,7 @@ class IsometricMapViewer(object):
         self.tile_height = isometric_map.tile_height
         self.half_tile_width = isometric_map.tile_width // 2
         self.half_tile_height = isometric_map.tile_height // 2
-        self.check_origin()
+        self._check_origin()
 
     @property
     def mouse_tile(self):
@@ -565,6 +567,13 @@ class IsometricMapViewer(object):
         return (self.relative_x(x - 1, y - 1) + self.x_off + extra_x_offset,
                 self.relative_y(x - 1, y - 1) + self.y_off + extra_y_offset)
 
+    def _default_offsets_case(self, a, b):
+        if a is None:
+            a = self.x_off
+        if b is None:
+            b = self.y_off
+        return a, b
+
     @staticmethod
     def static_map_x(rx, ry, tile_width, tile_height, half_tile_width, half_tile_height, return_int=True):
         # Return the map coordinates for the relative_x, relative_y coordinates. All x,y offsets- including both
@@ -584,13 +593,6 @@ class IsometricMapViewer(object):
             return int((rx - ox) / tile_width) + 1
         else:
             return (rx - ox) / tile_width + 1
-
-    def _default_offsets_case(self, a, b):
-        if a is None:
-            a = self.x_off
-        if b is None:
-            b = self.y_off
-        return a, b
 
     def map_x(self, sx, sy, xoffset_override=None, yoffset_override=None, return_int=True):
         """Return the map x row for the given screen coordinates."""
@@ -638,12 +640,7 @@ class IsometricMapViewer(object):
         return self.static_map_y(rx, ry, self.tile_width, self.tile_height, self.half_tile_width, self.half_tile_height,
                                  return_int=return_int)
 
-    # -useful?
-    # def new_offset_is_within_bounds(self, nuxoff, nuyoff):
-    #     mx = self.map_x(self.screen.get_width() // 2, self.screen.get_height() // 2)
-    #     my = self.map_y(self.screen.get_width() // 2, self.screen.get_height() // 2)
-
-    def check_origin(self):
+    def _check_origin(self):
         """Make sure the offset point is within map boundaries."""
         mx = self.map_x(self.screen.get_width() // 2, self.screen.get_height() // 2)
         my = self.map_y(self.screen.get_width() // 2, self.screen.get_height() // 2)
@@ -660,12 +657,13 @@ class IsometricMapViewer(object):
             self.focus(mx, my)
 
     def focus(self, x, y):
+        """Move the camera to point at the requested map tile. x,y can be ints or floats."""
         if self.isometric_map.on_the_map(int(x+0.99), int(y+0.99)) and not self.camera_updated_this_frame:
             self.x_off = self.screen.get_width() // 2 - self.relative_x(x, y)
             self.y_off = self.screen.get_height() // 2 - self.relative_y(x, y) + self.tile_height
             self.camera_updated_this_frame = True
 
-    def get_horizontal_line(self, x0, y0, line_number, visible_area):
+    def _get_horizontal_line(self, x0, y0, line_number, visible_area):
         mylist = list()
         x = x0 + line_number // 2
         y = y0 + (line_number + 1) // 2
@@ -680,10 +678,10 @@ class IsometricMapViewer(object):
             y -= 1
         return mylist
 
-    def model_depth(self, model):
+    def _model_depth(self, model):
         return self.relative_y(model.x, model.y)
 
-    def update_camera(self, dx, dy):
+    def _update_camera(self, dx, dy):
         # If the mouse and the arrow keys conflict, only one of them should win.
         if self.camera_updated_this_frame:
             return
@@ -699,7 +697,7 @@ class IsometricMapViewer(object):
             self.y_off = nu_y_off
             self.camera_updated_this_frame = True
 
-    def check_mouse_scroll(self, screen_area, mouse_x, mouse_y):
+    def _check_mouse_scroll(self, screen_area, mouse_x, mouse_y):
         # Check for map scrolling, depending on mouse position.
         if mouse_x < 20:
             dx = SCROLL_STEP
@@ -716,7 +714,7 @@ class IsometricMapViewer(object):
             dy = 0
 
         if dx or dy:
-            self.update_camera(dx, dy)
+            self._update_camera(dx, dy)
 
     def __call__(self):
         """Draws this mapview to the provided screen."""
@@ -731,7 +729,7 @@ class IsometricMapViewer(object):
             self._focused_object_x0 = self._focused_object.x
             self._focused_object_y0 = self._focused_object.y
         else:
-            self.check_mouse_scroll(screen_area, mouse_x, mouse_y)
+            self._check_mouse_scroll(screen_area, mouse_x, mouse_y)
         x, y = self.map_x(0, 0) - 2, self.map_y(0, 0) - 1
         x0, y0 = x, y
         keep_going = True
@@ -756,7 +754,7 @@ class IsometricMapViewer(object):
         while keep_going:
             # In order to allow smooth sub-tile movement of stuff, we have
             # to draw everything in a particular order.
-            nuline = self.get_horizontal_line(x0, y0, line_number, visible_area)
+            nuline = self._get_horizontal_line(x0, y0, line_number, visible_area)
             line_cache.append(nuline)
             current_y_offset = self.isometric_map.layers[0].offsety
             current_line = len(line_cache) - 1
@@ -780,7 +778,7 @@ class IsometricMapViewer(object):
                         for x, y in line_cache[current_line - 1]:
 
                             if (x, y) in objectgroup_contents[layer]:
-                                objectgroup_contents[layer][(x, y)].sort(key=self.model_depth)
+                                objectgroup_contents[layer][(x, y)].sort(key=self._model_depth)
                                 for ob in objectgroup_contents[layer][(x, y)]:
                                     sx, sy = self.screen_coords(
                                         ob.x, ob.y,
@@ -814,6 +812,7 @@ class IsometricMapViewer(object):
             self.postfx()
 
     def check_event(self, ev):
+        # Call this function every time your game loop gets an event.
         if self.cursor:
             self.cursor.update(self, ev)
         mykeys = pygame.key.get_pressed()
@@ -827,7 +826,7 @@ class IsometricMapViewer(object):
         elif self.right_scroll_key and mykeys[self.right_scroll_key]:
             dx = -SCROLL_STEP
         if dx or dy:
-            self.update_camera(dx, dy)
+            self._update_camera(dx, dy)
 
 
 class IsometricMapCursor(object):
