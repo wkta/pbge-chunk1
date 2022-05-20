@@ -12,6 +12,8 @@ pbge.init()
 
 import isometric_maps
 
+import demolib
+
 tilemap = isometric_maps.IsometricMap.load('assets/test_map.tmx')
 tilemap2 = isometric_maps.IsometricMap.load('assets/test_map2.tmx')
 
