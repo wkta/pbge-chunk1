@@ -896,7 +896,7 @@ class IsometricMapQuarterCursor(object):
 
     def render(self, view):
         if self.visible:
-            sx, sy = view.screen_coords(float(self._doublex-1)/2.0, float(self._doubley-1)/2.0)
+            sx, sy = view.screen_coords(*self.get_pos())
             mylayer = view.isometric_map.get_layer_by_name(self.layer_name)
             mydest = self.surf.get_rect(midbottom=(sx+mylayer.offsetx, sy+mylayer.offsety-2))
             view.screen.blit(self.surf, mydest)
@@ -912,6 +912,9 @@ class IsometricMapQuarterCursor(object):
     @property
     def y(self):
         return self._doubley//2
+
+    def get_pos(self):
+        return float(self._doublex-1)/2, float(self._doubley-1)/2
 
     def focus(self, view):
         view.focus(float(self._doublex - 1) / 2.0, float(self._doubley - 1) / 2.0)

@@ -1,10 +1,19 @@
-import pygame
+import katagames_engine as kengi
+
+pygame = kengi.pygame  # alias to keep on using pygame, easily
+screen = kengi.core.get_screen()  # new way to retrieve the surface used for display
+
 import glob
-from .frects import Frect,ANCHOR_CENTER,ANCHOR_UPPERLEFT
+
+from pbge.frects import Frect,ANCHOR_CENTER,ANCHOR_UPPERLEFT
 import random
 import collections
 
-from . import default_border,render_text, draw_text, wait_event,TIMEREVENT,my_state,INFO_GREEN
+from pbge import default_border,render_text, draw_text, wait_event,TIMEREVENT,INFO_GREEN
+
+DEFAULT_FONT_SIZE = 11
+
+
 
 class MenuItem( object ):
     def __init__(self,msg,value,desc,menu):
@@ -44,9 +53,9 @@ class MenuItem( object ):
 
     def render(self,dest,selected=False):
         if selected:
-            my_state.screen.blit(self.select_image, dest)
+            screen.blit(self.select_image, dest)
         else:
-            my_state.screen.blit(self.item_image, dest)
+            screen.blit(self.item_image, dest)
 
 
 # The DescBox is the default MenuDesc. It takes a string stored in the menu
@@ -63,7 +72,7 @@ class DescBox( Frect ):
         self.justify = justify
         if not anchor:
             anchor = menu.anchor
-        self.font = font or my_state.small_font
+        self.font = font or pygame.font.Font("assets/DejaVuSansCondensed-Bold.ttf", DEFAULT_FONT_SIZE)
         self.color = color or INFO_GREEN
         super(DescBox, self).__init__(dx,dy,w,h,anchor, **kwargs)
 
@@ -73,7 +82,7 @@ class DescBox( Frect ):
             self.border.render( mydest )
         if menu_item and menu_item.desc:
             img = render_text( self.font, menu_item.desc, self.w, justify = self.justify, color=self.color )
-            my_state.screen.blit( img , mydest )
+            screen.blit( img , mydest )
 
 MENU_ITEM_COLOR = pygame.Color(150,145,130)
 MENU_SELECT_COLOR = pygame.Color(128,250,230)
@@ -85,7 +94,7 @@ class Menu( Frect ):
         self.menuitem = menuitem
         self.menuselect = menuselect
         self.border = border
-        self.font = font or my_state.small_font
+        self.font = font or pygame.font.Font("assets/DejaVuSansCondensed-Bold.ttf", DEFAULT_FONT_SIZE)
         self.more_image = self.font.render("+",True,menuselect)
         self.padding = padding
         self.item_class = item_class
@@ -145,31 +154,18 @@ class Menu( Frect ):
         if do_extras:
             if self.predraw:
                 self.predraw()
-            else:
-                my_state.view()
-            my_state.render_widgets()
             if self.border:
                 self.border.render( mydest )
 
-        my_state.screen.set_clip(mydest)
+        screen.set_clip(mydest)
         self.arrange()
         for item_num,area in list(self._item_rects.items()):
             self.items[item_num].render(area, ( item_num == self.selected_item ) and do_extras)
 
-        my_state.screen.set_clip(None)
+        screen.set_clip(None)
 
         if self.descobj:
             self.descobj(self.get_current_item())
-
-        # Draw the "more" indicators
-        if do_extras and (( my_state.anim_phase // 10 ) % 2) == 1:
-            if self.top_item > 0:
-                area = self.more_image.get_rect(topright=mydest.topright)
-                my_state.screen.blit(self.more_image, area)
-            if list(self._item_rects.keys())[-1] < len(self.items) - 1:
-                area = self.more_image.get_rect(bottomright=mydest.bottomright)
-                my_state.screen.blit(self.more_image, area)
-
 
     def get_mouseover_item( self , pos ):
         # Return the menu item under this mouse position.
@@ -188,10 +184,6 @@ class Menu( Frect ):
         no_choice_made = True
         choice = False
 
-        # Disable widgets while menuing.
-        push_widget_state = my_state.widgets_active
-        my_state.widgets_active = False
-
         # Do an initial arrangement of the menu.
         self.arrange()
 
@@ -201,7 +193,7 @@ class Menu( Frect ):
             if pc_input.type == TIMEREVENT:
                 # Redraw the menu on each timer event.
                 self.render()
-                my_state.do_flip(show_widgets=False)
+                kengi.flip()
 
             elif pc_input.type == pygame.KEYDOWN:
                 # A key was pressed, oh happy day! See what key it was and act
@@ -232,7 +224,9 @@ class Menu( Frect ):
 
             elif pc_input.type == pygame.MOUSEBUTTONDOWN:
                 if (pc_input.button == 1):
-                    moi = self.get_mouseover_item(my_state.mouse_pos)
+                    mouse_pos = kengi.core.proj_to_vscreen(pygame.mouse.get_pos())
+
+                    moi = self.get_mouseover_item(mouse_pos)
                     if moi is not None:
                         self.set_item_by_position(moi)
                 elif (pc_input.button == 4):
@@ -241,8 +235,9 @@ class Menu( Frect ):
                     self.top_item = min(self.top_item + 1, self._the_highest_top)
 
             elif pc_input.type == pygame.MOUSEBUTTONUP:
+                mouse_pos = kengi.core.proj_to_vscreen(pygame.mouse.get_pos())
                 if pc_input.button == 1:
-                    moi = self.get_mouseover_item(my_state.mouse_pos)
+                    moi = self.get_mouseover_item(mouse_pos)
                     if moi is self.selected_item:
                         choice = self.items[self.selected_item].value
                         no_choice_made = False
@@ -250,15 +245,13 @@ class Menu( Frect ):
                     no_choice_made = False
 
             elif pc_input.type == pygame.MOUSEMOTION:
-                moi = self.get_mouseover_item(my_state.mouse_pos)
+                mouse_pos = kengi.core.proj_to_vscreen(pygame.mouse.get_pos())
+                moi = self.get_mouseover_item(mouse_pos)
                 if moi is not None:
                     self.set_item_by_position(moi)
 
             elif pc_input.type == pygame.QUIT:
                 no_choice_made = False
-
-        # Restore the widgets.
-        my_state.widgets_active = push_widget_state
 
         return( choice )
 
@@ -325,10 +318,11 @@ class Menu( Frect ):
 class PopUpMenu( Menu ):
     """Creates a small menu at the current mouse position."""
     def __init__( self, w=200, h=250, predraw=None, border=default_border, **kwargs ):
-        x,y = my_state.mouse_pos
+        mouse_pos = kengi.core.proj_to_vscreen(pygame.mouse.get_pos())
+        x,y = mouse_pos
         x += 8
         y += 8
-        sw,sh = my_state.screen.get_size()
+        sw,sh = screen.get_size()
         if x + w + 32 > sw:
             x += -w - 32
         if y + h + 32 > sh:
@@ -350,9 +344,7 @@ class AlertMenu( Menu ):
         self.desc = desc
 
     def pre( self ):
-        if my_state.view:
-            my_state.view()
         default_border.render(self.FULL_RECT.get_rect())
-        draw_text(my_state.medium_font, self.desc, self.TEXT_RECT.get_rect(), justify=0)
+        draw_text(self.font, self.desc, self.TEXT_RECT.get_rect(), justify=0)
 
 

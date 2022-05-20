@@ -10,13 +10,15 @@
 # Word wrapper taken from the PyGame wiki plus
 # the list-printer from Anne Archibald's GearHead Prime demo.
 
-import pygame
+import katagames_engine as kengi
+
+pygame = kengi.pygame  # alias to keep on using pygame, easily
+screen = kengi.core.get_screen()  # new way to retrieve the surface used for display
+
 from itertools import chain
-import glob
 import random
 import weakref
 import sys
-import os
 
 
 class KeyObject(object):
@@ -87,21 +89,21 @@ class Border(object):
             (fdest.x + fdest.width - self.border_width // 2, fdest.y + fdest.height - self.border_width // 2), self.br)
 
         fdest = dest.inflate(self.padding - self.border_width, self.padding + self.border_width)
-        my_state.screen.set_clip(fdest)
+        screen.set_clip(fdest)
         for x in range(0, fdest.w // self.border_width + 2):
             self.border.render((fdest.x + x * self.border_width, fdest.y), self.t)
             self.border.render((fdest.x + x * self.border_width, fdest.y + fdest.height - self.border_width), self.b)
 
         fdest = dest.inflate(self.padding + self.border_width, self.padding - self.border_width)
-        my_state.screen.set_clip(fdest)
+        screen.set_clip(fdest)
         for y in range(0, fdest.h // self.border_width + 2):
             self.border.render((fdest.x, fdest.y + y * self.border_width), self.l)
             self.border.render((fdest.x + fdest.width - self.border_width, fdest.y + y * self.border_width), self.r)
-        my_state.screen.set_clip(None)
+        screen.set_clip(None)
 
 
 # Monkey Type these definitions to fit your game/assets.
-default_border = Border(border_width=8, tex_width=16, border_name="sys_defborder.png", tex_name="sys_defbackground.png",
+default_border = Border(border_width=8, tex_width=16, border_name="assets/sys_defborder.png", tex_name="assets/sys_defbackground.png",
                         tl=0, tr=3, bl=4, br=5, t=1, b=1, l=2, r=2)
 notex_border = Border(border_width=8, border_name="sys_defborder.png", padding=4, tl=0, tr=3, bl=4, br=5, t=1, b=1, l=2,
                       r=2)
@@ -227,7 +229,6 @@ ANIMFONT = None
 MEDIUMFONT = None
 ALTTEXTFONT = None  # Use this instead of MEDIUMFONT when you want to shake things up a bit.
 POSTERS = list()
-my_state = GameState()
 
 # The FPS the rules runs at.
 FPS = 30
@@ -321,7 +322,7 @@ def render_text(font, text, width, color=TEXT_COLOR, justify=-1, antialias=True)
 
 def draw_text(font, text, rect, color=TEXT_COLOR, justify=-1, antialias=True, dest_surface=None):
     # Draw some text to the screen with the provided options.
-    dest_surface = dest_surface or my_state.screen
+    dest_surface = dest_surface or screen
     myimage = render_text(font, text, rect.width, color, justify, antialias)
     if justify == 0:
         myrect = myimage.get_rect(midtop=rect.midtop)
@@ -339,173 +340,20 @@ def wait_event():
     ev = pygame.event.wait()
 
     # Record if a quit event took place
-    if ev.type == pygame.QUIT:
-        my_state.got_quit = True
-    elif ev.type == TIMEREVENT:
+    if ev.type == TIMEREVENT:
         pygame.event.clear(TIMEREVENT)
-
-    # Inform any interested widgets of the event.
-    my_state.widget_clicked = False
-    if my_state.widgets_active:
-        for w in my_state.widgets:
-            w.respond_event(ev)
-
-    # If the view has a check_event method, call that.
-    if my_state.view and hasattr(my_state.view, "check_event"):
-        my_state.view.check_event(ev)
 
     return ev
 
 
 
 
-def alert(text, font=None):
-    if not font:
-        font = my_state.medium_font
-    # mydest = pygame.Rect( my_state.screen.get_width() // 2 - 200, my_state.screen.get_height()//2 - 100, 400, 200 )
-    mytext = render_text(font, text, 400)
-    mydest = mytext.get_rect(center=(my_state.screen.get_width() // 2, my_state.screen.get_height() // 2))
-
-    pygame.event.clear([TIMEREVENT, pygame.KEYDOWN])
-    while True:
-        ev = wait_event()
-        if (ev.type == pygame.MOUSEBUTTONUP) or (ev.type == pygame.QUIT) or (ev.type == pygame.KEYDOWN):
-            return ev
-        elif ev.type == TIMEREVENT:
-            if my_state.view:
-                my_state.view()
-            default_border.render(mydest)
-            my_state.screen.blit(mytext, mydest)
-            my_state.do_flip()
-
-
-def alert_display(display_fun):
-    pygame.event.clear([TIMEREVENT, pygame.KEYDOWN])
-    while True:
-        ev = wait_event()
-        if (ev.type == pygame.MOUSEBUTTONUP) or (ev.type == pygame.QUIT) or (ev.type == pygame.KEYDOWN):
-            break
-        elif ev.type == TIMEREVENT:
-            if my_state.view:
-                my_state.view()
-            display_fun()
-            my_state.do_flip()
-
-
-ALLOWABLE_CHARACTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890()-=_+,.?"'
-
-
-def input_string(font=None, redrawer=None, prompt="Enter text below", prompt_color=(255, 255, 255),
-                 input_color=TEXT_COLOR, border=default_border):
-    # Input a string from the user.
-    it = []
-    keep_going = True
-
-    if not font:
-        font = BIGFONT
-
-    myrect = pygame.Rect(my_state.screen.get_width() / 2 - 200, my_state.screen.get_height() / 2 - 32, 400, 64)
-    prompt_image = font.render(prompt, True, prompt_color)
-
-    while keep_going:
-        ev = wait_event()
-
-        if ev.type == TIMEREVENT:
-            if redrawer != None:
-                redrawer()
-            border.render(myrect)
-            mystring = "".join(it)
-            myimage = font.render(mystring, True, input_color)
-            my_state.screen.blit(prompt_image, (my_state.screen.get_width() / 2 - prompt_image.get_width() / 2,
-                                                my_state.screen.get_height() / 2 - prompt_image.get_height() - 2))
-            my_state.screen.set_clip(myrect)
-            my_state.screen.blit(myimage, (
-            my_state.screen.get_width() / 2 - myimage.get_width() / 2, my_state.screen.get_height() / 2))
-            INPUT_CURSOR.render(
-                (my_state.screen.get_width() / 2 + myimage.get_width() / 2 + 2, my_state.screen.get_height() / 2),
-                ( my_state.anim_phase // 3 ) % 4)
-            my_state.screen.set_clip(None)
-            my_state.do_flip(False)
-
-
-        elif ev.type == pygame.KEYDOWN:
-            if (ev.key == pygame.K_BACKSPACE) and (len(it) > 0):
-                del it[-1]
-            elif (ev.key == pygame.K_RETURN) or (ev.key == pygame.K_ESCAPE):
-                keep_going = False
-            elif (ev.unicode in ALLOWABLE_CHARACTERS) and (len(ev.unicode) > 0):
-                it.append(ev.unicode)
-        elif ev.type == pygame.QUIT:
-            keep_going = False
-    return "".join(it)
-
-
-def please_stand_by(caption=None):
-    if not my_state.standing_by:
-        img = pygame.image.load(random.choice(POSTERS)).convert()
-        dest = img.get_rect(center=(my_state.screen.get_width() // 2, my_state.screen.get_height() // 2))
-        my_state.screen.fill((0, 0, 0))
-        my_state.screen.blit(img, dest)
-        if caption:
-            mytext = BIGFONT.render(caption, True, TEXT_COLOR)
-            dest2 = mytext.get_rect(topleft=(dest.x + 32, dest.y + 32))
-            default_border.render(my_state.screen, dest2)
-            my_state.screen.blit(mytext, dest2)
-        my_state.standing_by = True
-        my_state.do_flip(False, reset_standing_by=False)
 
 
 from . import frects
-from . import rpgmenu
 from . import image
-from . import widgets
-from . import dialogue
 
 
-class BasicNotification(frects.Frect):
-    IP_INFLATE = 0
-    IP_DISPLAY = 1
-    IP_DEFLATE = 2
-    IP_DONE = 3
-
-    def __init__(self, text, font=None, dx=16, dy=16, w=256, h=10, anchor=frects.ANCHOR_UPPERLEFT,
-                 border=default_border, count=60, **kwargs):
-        font = font or my_state.big_font
-        w = min(w, font.size(text)[0])
-        self.text_bitmap = render_text(font, text, w)
-        h = max(h, self.text_bitmap.get_height())
-        super().__init__(dx, dy, w, h, anchor, **kwargs)
-        self.border = border
-        self.count = count
-        self._inflation_phase = self.IP_INFLATE
-        self._inflation_count = 0
-        my_state.notifications.append(self)
-
-    def render(self):
-        if self._inflation_phase == self.IP_INFLATE:
-            # Inflating
-            mydest = self.get_rect()
-            mydest.inflate_ip(-(self.w * (5 - self._inflation_count)) // 6,
-                              -(self.h * (5 - self._inflation_count)) // 6)
-            self.border.render(mydest)
-            self._inflation_count += 1
-            if self._inflation_count >= 5:
-                self._inflation_phase = self.IP_DISPLAY
-        elif self._inflation_phase == self.IP_DISPLAY and self.count > 0:
-            self.border.render(self.get_rect())
-            my_state.screen.blit(self.text_bitmap, self.get_rect())
-            self.count -= 1
-        else:
-            mydest = self.get_rect()
-            mydest.inflate_ip(-(self.w * (5 - self._inflation_count)) // 6,
-                              -(self.h * (5 - self._inflation_count)) // 6)
-            self.border.render(mydest)
-            self._inflation_count -= 1
-            if self._inflation_count <= 0:
-                self._inflation_phase = self.IP_DONE
-
-    def is_done(self):
-        return self._inflation_phase == self.IP_DONE
 
 
 # PG2 Change

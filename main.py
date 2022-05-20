@@ -40,14 +40,89 @@ class Character(isometric_maps.IsometricMapObject):
         dest_surface.blit(self.surf, mydest)
 
 
-mypc = Character(10.5, 10.5)
+class NPC(isometric_maps.IsometricMapObject):
+    def __init__(self, x, y):
+        super().__init__()
+        self.x = x
+        self.y = y
+        self.surf = pygame.image.load("assets/npc.png").convert_alpha()
+        # self.surf.set_colorkey((0,0,255))
+
+    def __call__(self, dest_surface, sx, sy, mymap):
+        mydest = self.surf.get_rect(midbottom=(sx, sy))
+        dest_surface.blit(self.surf, mydest)
+
+
+class MovementPath():
+    def __init__(self, mapob, dest, mymap):
+        #print(dest)
+        self.mapob = mapob
+        self.dest = dest
+        self.goal = None
+        blocked_tiles = set()
+        obgroup = list(mymap.objectgroups.values())[0]
+        for ob in obgroup.contents:
+            if ob is not mapob:
+                blocked_tiles.add((ob.x,ob.y))
+                if self.pos_to_index((ob.x, ob.y)) == self.pos_to_index(dest):
+                    self.goal = ob
+        self.path = demolib.pathfinding.AStarPath(mymap, self.pos_to_index((mapob.x, mapob.y)), self.pos_to_index(dest), self.tile_is_blocked, blocked_tiles)
+        if self.path.results:
+            self.path.results.pop(0)
+        self.all_the_way_to_dest = not (dest in blocked_tiles or self.tile_is_blocked(mymap, *self.pos_to_index(dest)))
+        if self.path.results and not self.all_the_way_to_dest:
+            self.path.results.pop(-1)
+        self.animob = None
+
+    @staticmethod
+    def pos_to_index(pos):
+        x = int(pos[0] + 0.99)
+        y = int(pos[1] + 0.99)
+        return x,y
+
+    @staticmethod
+    def tile_is_blocked(mymap, x, y):
+        return not(mymap.on_the_map(x,y) and mymap.layers[1][x,y] == 0)
+
+    def __call__(self):
+        # Called once per update; returns True when the action is completed.
+        if self.animob:
+            self.animob.update()
+            if self.animob.needs_deletion:
+                self.animob = None
+        if not self.animob:
+            if self.path.results:
+                if len(self.path.results) == 1 and self.all_the_way_to_dest:
+                    nugoal = self.dest
+                    self.path.results = []
+                else:
+                    nugoal = self.path.results.pop(0)
+                self.animob = demolib.animobs.MoveModel(self.mapob, start=(self.mapob.x,self.mapob.y), dest=nugoal, speed=0.25)
+            else:
+                #print((self.mapob.x,self.mapob.y))
+                #sx, sy = viewer.screen_coords(self.mapob.x, self.mapob.y, 0, -8)
+                #print(viewer.map_x(sx, sy, return_int=False), viewer.map_y(sx, sy, return_int=False))
+                return True
+
+
+def start_conversation():
+    myconvo = demolib.dialogue.Offer.load_json("assets/conversation.json")
+    myviewer = demolib.dialogue.SimpleVisualizer(myconvo, viewer)
+    myviewer.converse()
+
+mypc = Character(10, 10)
+mynpc = NPC(15,15)
 list(tilemap.objectgroups.values())[0].contents.append(mypc)
 list(tilemap2.objectgroups.values())[0].contents.append(mypc)
+list(tilemap.objectgroups.values())[0].contents.append(mynpc)
+list(tilemap2.objectgroups.values())[0].contents.append(mynpc)
 
 viewer.set_focused_object(mypc)
 
 keep_going = True
 current_tilemap = 0
+
+current_path = None
 
 while keep_going:
     gdi = pbge.wait_event()
@@ -57,6 +132,14 @@ while keep_going:
     if gdi.type == pbge.TIMEREVENT:
         viewer()
         kengi.flip()
+
+        if current_path:
+            ending_reached = current_path()
+            if ending_reached:
+                if current_path.goal:
+                    start_conversation()
+                current_path = None
+
     elif gdi.type == pygame.KEYDOWN:
         if gdi.key == pygame.K_ESCAPE:
             keep_going = False
@@ -76,6 +159,9 @@ while keep_going:
         elif gdi.key == pygame.K_TAB:
             current_tilemap = 1 - current_tilemap
             viewer.switch_map(maps[current_tilemap])
+
+    elif gdi.type == pygame.MOUSEBUTTONUP and gdi.button == 1:
+        current_path = MovementPath(mypc, viewer.cursor.get_pos(), maps[current_tilemap])
 
     elif gdi.type == pygame.QUIT:
         keep_going = False

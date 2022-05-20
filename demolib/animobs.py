@@ -69,12 +69,12 @@ class MoveModel(object):
             start = model.pos
         self.itinerary = get_fline(start, dest, speed)
 
-    def update(self, view):
+    def update(self):
         # This one doesn't appear directly, but moves a model.
         if self.delay > 0:
             self.delay += -1
         elif self.itinerary:
-            self.model.pos = self.itinerary.pop(0)
+            self.model.x, self.model.y = self.itinerary.pop(0)
             if not self.itinerary:
                 self.needs_deletion = True
         else:
